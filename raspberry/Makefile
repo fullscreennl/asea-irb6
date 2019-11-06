@@ -1,14 +1,14 @@
 # define the C compiler to use
 CC = gcc
 
-CFLAGS_EXTRA = -I/tools/arm-bcm2708/gcc-linaro-arm-linux-gnueabihf-raspbian-x64/arm-linux-gnueabihf/include
-
 MAIN = irb6-driver
 CFLAGS = -Wall -g
-INCLUDES = -I/usr/include/xenomai
+#INCLUDES = -I/usr/xenomai/include/cobalt -I/usr/xenomai/include -march=armv7-a -mfloat-abi=hard -mfpu=neon -ffast-math -D_GNU_SOURCE -D_REENTRANT -fasynchronous-unwind-tables -D__COBALT__
+INCLUDES = -I/usr/xenomai/include/cobalt -I/usr/xenomai/include -march=armv7-a -mfloat-abi=hard -mfpu=neon -ffast-math -D_GNU_SOURCE -D_REENTRANT -fasynchronous-unwind-tables -D__COBALT__ -I/usr/xenomai/include/alchemy -Ibcm2835 -I/usr/local/include -L/usr/local/lib
 LFLAGS = -L/usr/lib/xenomai
-LIBS = -lnative -lxenomai -lm -llua -ldl
-SRCS = driver.c
+#LIBS = -Wl,--no-as-needed -Wl,@/usr/xenomai/lib/modechk.wrappers  /usr/xenomai/lib/xenomai/bootstrap.o -Wl,--wrap=main -Wl,--dynamic-list=/usr/xenomai/lib/dynlist.ld -L/usr/xenomai/lib -lcobalt -lmodechk -lpthread -lrt
+LIBS = -Wl,--no-as-needed -Wl,@/usr/xenomai/lib/modechk.wrappers -lalchemy -lcopperplate /usr/xenomai/lib/xenomai/bootstrap.o -Wl,--wrap=main -Wl,--dynamic-list=/usr/xenomai/lib/dynlist.ld -L/usr/xenomai/lib -lcobalt -lmodechk -lpthread -lrt -lwiringPi
+SRCS = driver.c bcm2835/bcm2835.c
 
 
 # define the C object files 
