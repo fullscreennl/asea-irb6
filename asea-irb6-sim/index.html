@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script type="text/javascript" src="d3/d3.min.js"></script>
+    <style>
+      .slidecontainer {
+        width: 100%; /* Width of the outside container */
+      }
+
+      /* The slider itself */
+      .slider {
+        -webkit-appearance: none;  /* Override default CSS styles */
+        appearance: none;
+        width: 100%; /* Full-width */
+        height: 25px; /* Specified height */
+        background: #d3d3d3; /* Grey background */
+        outline: none; /* Remove outline */
+        opacity: 0.7; /* Set transparency (for mouse-over effects on hover) */
+        -webkit-transition: .2s; /* 0.2 seconds transition on hover */
+        transition: opacity .2s;
+      }
+
+      /* Mouse-over effects */
+      .slider:hover {
+        opacity: 1; /* Fully shown on mouse-over */
+      }
+
+      /* The slider handle (use -webkit- (Chrome, Opera, Safari, Edge) and -moz- (Firefox) to override default look) */
+      .slider::-webkit-slider-thumb {
+        -webkit-appearance: none; /* Override default look */
+        appearance: none;
+        width: 25px; /* Set a specific slider handle width */
+        height: 25px; /* Slider handle height */
+        background: #4CAF50; /* Green background */
+        cursor: pointer; /* Cursor on hover */
+      }
+
+      .slider::-moz-range-thumb {
+        width: 25px; /* Set a specific slider handle width */
+        height: 25px; /* Slider handle height */
+        background: #4CAF50; /* Green background */
+        cursor: pointer; /* Cursor on hover */
+      }
+    </style>
+  </head>
+  <body>
+    <div class="slidecontainer">
+      <input type="range" min="40" max="100" value="54" class="slider" id="engine1">
+    </div>
+    <div class="slidecontainer">
+      <input type="range" min="40" max="100" value="54" class="slider" id="engine2">
+    </div>
+    <div class="slidecontainer">
+      <input type="range" min="0" max="180" value="90" class="slider" id="engine3">
+    </div>
+    <div class="slidecontainer">
+      <input type="range" min="0" max="360" value="270" class="slider" id="engine4">
+    </div>
+  </body>
+  <script type='text/javascript'>
+
+    var mm = 0.3;
+    var UPPER_ARM_LENGTH = 690*mm;
+    var UPPER_ARM_JOINT_LENGTH = 140*mm;
+    var LOWER_ARM_LENGTH = 670*mm;
+    var HAND_LENGTH = 95*mm;
+    var LOWER_ARM_JOINT_LENGTH = 140*mm;
+    var ENGINE_HINGE_POS = [450+154.59*mm,300+190*mm];
+    var UPPER_ARM_JOINT_POS = [450, 300];
+
+    var UPPER_ARM_JOINT_POS_TV = [950, 300];
+    
+    var bodySelection = d3.select("body");
+
+    var svgSelection = bodySelection.append("svg")
+           .attr("width", "100%")
+           .attr("height", 1000);
+
+    svgSelection.append("rect")
+        .attr("width", "100%")
+        .attr("height", "100%")
+        .attr("fill", "pink");
+
+    function arm(){
+      return svgSelection.append("line")
+                 .attr("x1", 0)
+                 .attr("y1", 0)
+                 .attr("x2", 0)
+                 .attr("y2", 0)
+                 .attr("stroke-width", 2)
+                 .attr("stroke", "black");
+    }
+
+    function circ(r, y){
+      return svgSelection.append("circle")
+               .attr("cx", 0)
+               .attr("cy", y)
+               .attr("r", r)
+               .style("fill", "purple");
+    }
+
+    var engine_hinge = circ(10,25);
+    var elbow = circ(10,25);
+    var wrist = circ(10,25);
+    var upperarm_joint = circ(10, 20);
+
+    var upperarm_hinge = circ(10,25);
+    var lowerarm_hinge = circ(10,25);
+
+    var upperarm_screw = arm();
+    var upperarm_lever = arm();
+    var upperarm = arm();
+
+    var lowerarm_screw = arm();
+    var lowerarm_lever = arm();
+    var lowerarm = arm();
+
+    var paralel_arm = arm();
+    var top_lever = arm();
+    var hand = arm();
+    var tip = circ(10, 25);
+    var tip_tv = circ(10, 25);
+
+    var topjoint = circ(10, 25);
+
+    var topview_upperarm_joint = circ(10, 25);
+    var topview_arm = arm();
+
+    function posFromAngle(angle, length, x, y){
+      angle = angle / 57.2957795;
+      var cx = x;
+      var cy = y;
+      var radius = length;
+      var x = cx + radius * Math.cos(angle);
+      var y = cy + radius * Math.sin(angle);
+      return {x: x, y: y};
+    }
+
+    function angleBetweenPoints(x1, y1, x2, y2){
+      var angleDeg = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
+      return angleDeg;
+    }
+
+    function intersection(x0, y0, r0, x1, y1, r1) {
+        var a, dx, dy, d, h, rx, ry;
+        var x2, y2;
+        dx = x1 - x0;
+        dy = y1 - y0;
+        d = Math.sqrt((dy*dy) + (dx*dx));
+        if (d > (r0 + r1)) {
+            return false;
+        }
+        if (d < Math.abs(r0 - r1)) {
+            return false;
+        }
+        a = ((r0*r0) - (r1*r1) + (d*d)) / (2.0 * d) ;
+        x2 = x0 + (dx * a/d);
+        y2 = y0 + (dy * a/d);
+        h = Math.sqrt((r0*r0) - (a*a));
+        rx = -dy * (h/d);
+        ry = dx * (h/d);
+        var xi = x2 + rx;
+        var xi_prime = x2 - rx;
+        var yi = y2 + ry;
+        var yi_prime = y2 - ry;
+        return {x: xi_prime, y: yi_prime};
+    }
+
+    var upper_arm_screw_length = 180*mm;
+    var lower_arm_screw_length = 180*mm;
+    var wrist_ang = 90;
+    var base_ang = 270;
+
+    function update(engine, mode){
+
+        // SCREWS //
+        if(mode == "upper"){
+          upper_arm_screw_length = engine;
+        }
+
+        if(mode == "lower"){
+          lower_arm_screw_length = engine;
+        }
+
+        if(mode == "wrist"){
+          wrist_ang = parseInt(engine)+90;
+        }
+
+        if(mode == "base"){
+          base_ang = parseInt(engine);
+        }
+
+        if(mode == "init"){
+          upper_arm_screw_length = engine;
+          lower_arm_screw_length = engine;
+          wrist_ang = 90+90;
+          base_ang = 270;
+        }
+
+
+        // UPPER ARM //
+        var upper_arm_hinge_pos = intersection(UPPER_ARM_JOINT_POS[0], 
+                                               UPPER_ARM_JOINT_POS[1], 
+                                               UPPER_ARM_JOINT_LENGTH, 
+                                               ENGINE_HINGE_POS[0], 
+                                               ENGINE_HINGE_POS[1], 
+                                               upper_arm_screw_length);
+
+        var ang = angleBetweenPoints(UPPER_ARM_JOINT_POS[0], 
+                                     UPPER_ARM_JOINT_POS[1],
+                                     upper_arm_hinge_pos.x,
+                                     upper_arm_hinge_pos.y);
+
+        var elbow_pos = posFromAngle(-73.14+ang, 
+                                     UPPER_ARM_LENGTH, 
+                                     UPPER_ARM_JOINT_POS[0], 
+                                     UPPER_ARM_JOINT_POS[1]);
+
+        engine_hinge.attr('cx', ENGINE_HINGE_POS[0]);
+        engine_hinge.attr('cy', ENGINE_HINGE_POS[1]);
+
+        upperarm_hinge.attr('cx', upper_arm_hinge_pos.x);
+        upperarm_hinge.attr('cy', upper_arm_hinge_pos.y);
+
+        upperarm_joint.attr('cx', UPPER_ARM_JOINT_POS[0]);
+        upperarm_joint.attr('cy', UPPER_ARM_JOINT_POS[1]);
+
+        elbow.attr('cx', elbow_pos.x);
+        elbow.attr('cy', elbow_pos.y);
+
+        upperarm_screw.attr("x1", ENGINE_HINGE_POS[0])
+            .attr("y1", ENGINE_HINGE_POS[1])
+            .attr("x2", upper_arm_hinge_pos.x)
+            .attr("y2", upper_arm_hinge_pos.y);
+
+        upperarm_lever.attr("x1", UPPER_ARM_JOINT_POS[0])
+            .attr("y1", UPPER_ARM_JOINT_POS[1])
+            .attr("x2", upper_arm_hinge_pos.x)
+            .attr("y2", upper_arm_hinge_pos.y);
+
+        upperarm.attr("x1", UPPER_ARM_JOINT_POS[0])
+            .attr("y1", UPPER_ARM_JOINT_POS[1])
+            .attr("x2", elbow_pos.x)
+            .attr("y2", elbow_pos.y);
+
+
+        // LOWER ARM //
+        var lower_arm_hinge_pos = intersection(UPPER_ARM_JOINT_POS[0], 
+                                               UPPER_ARM_JOINT_POS[1], 
+                                               UPPER_ARM_JOINT_LENGTH, 
+                                               ENGINE_HINGE_POS[0], 
+                                               ENGINE_HINGE_POS[1], 
+                                               lower_arm_screw_length);
+
+        lowerarm_hinge.attr('cx', lower_arm_hinge_pos.x);
+        lowerarm_hinge.attr('cy', lower_arm_hinge_pos.y);
+
+        var ang = angleBetweenPoints(UPPER_ARM_JOINT_POS[0], 
+                                     UPPER_ARM_JOINT_POS[1],
+                                     lower_arm_hinge_pos.x,
+                                     lower_arm_hinge_pos.y);
+
+        var wrist_pos = posFromAngle(ang+180, 
+                                     LOWER_ARM_LENGTH, 
+                                     elbow_pos.x, 
+                                     elbow_pos.y);
+
+        var top_joint_pos = posFromAngle(ang, 
+                                     LOWER_ARM_JOINT_LENGTH, 
+                                     elbow_pos.x, 
+                                     elbow_pos.y);
+
+        topjoint.attr('cx', top_joint_pos.x);
+        topjoint.attr('cy', top_joint_pos.y);
+
+        top_lever.attr("x1", top_joint_pos.x)
+            .attr("y1", top_joint_pos.y)
+            .attr("x2", elbow_pos.x)
+            .attr("y2", elbow_pos.y);
+
+        paralel_arm.attr("x1", top_joint_pos.x)
+            .attr("y1", top_joint_pos.y)
+            .attr("x2", lower_arm_hinge_pos.x)
+            .attr("y2", lower_arm_hinge_pos.y);
+
+        lowerarm_screw.attr("x1", ENGINE_HINGE_POS[0])
+            .attr("y1", ENGINE_HINGE_POS[1])
+            .attr("x2", lower_arm_hinge_pos.x)
+            .attr("y2", lower_arm_hinge_pos.y);
+
+        lowerarm_lever.attr("x1", UPPER_ARM_JOINT_POS[0])
+            .attr("y1", UPPER_ARM_JOINT_POS[1])
+            .attr("x2", lower_arm_hinge_pos.x)
+            .attr("y2", lower_arm_hinge_pos.y);
+
+        lowerarm.attr("x1", elbow_pos.x)
+            .attr("y1", elbow_pos.y)
+            .attr("x2", wrist_pos.x)
+            .attr("y2", wrist_pos.y);
+
+        wrist.attr('cx', wrist_pos.x);
+        wrist.attr('cy', wrist_pos.y);
+
+        // WRIST
+        var tip_pos = posFromAngle(wrist_ang, 
+                                   HAND_LENGTH, 
+                                   wrist_pos.x, 
+                                   wrist_pos.y);
+
+        hand.attr("x1", tip_pos.x)
+            .attr("y1", tip_pos.y)
+            .attr("x2", wrist_pos.x)
+            .attr("y2", wrist_pos.y);
+
+        tip.attr('cx', tip_pos.x);
+        tip.attr('cy', tip_pos.y);
+
+
+
+        // TOPVIEW
+        topview_upperarm_joint.attr('cx', UPPER_ARM_JOINT_POS_TV[0]);
+        topview_upperarm_joint.attr('cy', UPPER_ARM_JOINT_POS_TV[1]);
+
+        var tipx = (UPPER_ARM_JOINT_POS[0]-tip_pos.x);
+
+        var base_pos = posFromAngle(base_ang, 
+                                     tipx, 
+                                     UPPER_ARM_JOINT_POS_TV[0], 
+                                     UPPER_ARM_JOINT_POS_TV[1]);
+        
+        tip_tv.attr('cx', base_pos.x);
+        tip_tv.attr('cy', base_pos.y);
+
+
+        topview_arm.attr("x1", UPPER_ARM_JOINT_POS_TV[0])
+                      .attr("y1", UPPER_ARM_JOINT_POS_TV[1])
+                      .attr("x2", tip_tv.attr('cx'))
+                      .attr("y2", tip_tv.attr('cy'));
+
+        console.log("x: "+ (parseInt(tip_tv.attr('cx')) - 950) + 
+                    " y: "+ (parseInt(tip_tv.attr('cy')) - 300) +
+                    " z: "+ -1*(tip_pos.y-UPPER_ARM_JOINT_POS[1]));
+
+       
+    }
+
+    update(180*mm, "init");
+
+    var slider = document.getElementById("engine1");
+    slider.oninput = function() {
+      update(this.value, "upper");
+    }
+
+    var slider2 = document.getElementById("engine2");
+    slider2.oninput = function() {
+      update(this.value, "lower");
+    }
+
+    var slider3 = document.getElementById("engine3");
+    slider3.oninput = function() {
+      update(this.value, "wrist");
+    }
+
+    var slider4 = document.getElementById("engine4");
+    slider4.oninput = function() {
+      update(this.value, "base");
+    }
+
+
+
+  </script>
+  <body>
+
+  </body>
+</html>
