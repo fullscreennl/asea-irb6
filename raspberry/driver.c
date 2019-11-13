@@ -53,7 +53,7 @@
 #define AXIS5_MOTOR_PULSE 26   // io12
 #define AXIS5_MOTOR_DIR 28     // io20
 
-#define LIMIT1 7 			   // io4
+#define LIMIT1 7               // io4
 #define LIMIT2 2               // io27
 #define LIMIT3 29              // io21
 #define LIMIT4 23              // io13
@@ -77,8 +77,8 @@ int axis_3_homed = 0;
 int axis_4_homed = 0;
 int axis_5_homed = 0;
 
-int speed_delay = 500000000;
-int pulse_width = 100000;
+int speed_delay = 550000;
+int pulse_width = 2000;
 
 int homed = 0;
 
@@ -160,8 +160,8 @@ void setUp(){
 
 }
 
-void sync(){
-    if (!homed) {
+void sync_bot(void *arg){
+    while (!homed){
         rt_task_wait_period(NULL);
         if (digitalRead(LIMIT1) == limit_1_state){
             digitalWrite(AXIS1_MOTOR_PULSE, HIGH);
@@ -215,7 +215,7 @@ int main(int argc, char* argv[])
     setUp();
     rt_task_set_periodic(&sync_task, TM_NOW, 1000000);
     rt_task_create(&sync_task, "sync-task", 0, 99, 0);
-    rt_task_start(&sync_task, sync, NULL);
+    rt_task_start(&sync_task, &sync_bot, NULL);
     pause();
     rt_task_delete(&sync_task);
     return 0;
