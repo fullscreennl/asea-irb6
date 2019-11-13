@@ -38,26 +38,26 @@
  +-----+-----+---------+------+---+---Pi 3B+-+---+------+---------+-----+-----+
 
 */
-#define AXIS1_MOTOR_PULSE 4
-#define AXIS1_MOTOR_DIR 5
+#define AXIS1_MOTOR_PULSE 0    // io17
+#define AXIS1_MOTOR_DIR 1      // io18
 
-#define AXIS2_MOTOR_PULSE 6
-#define AXIS2_MOTOR_DIR 7
+#define AXIS2_MOTOR_PULSE 5    // io24
+#define AXIS2_MOTOR_DIR 6      // io25
 
-#define AXIS3_MOTOR_PULSE 8
-#define AXIS3_MOTOR_DIR 9
+#define AXIS3_MOTOR_PULSE 21   // io5 
+#define AXIS3_MOTOR_DIR 22     // io6
 
-#define AXIS4_MOTOR_PULSE 10
-#define AXIS4_MOTOR_DIR 11
+#define AXIS4_MOTOR_PULSE 4    // io23
+#define AXIS4_MOTOR_DIR 3      // io22
 
-#define AXIS5_MOTOR_PULSE 12
-#define AXIS5_MOTOR_DIR 13
+#define AXIS5_MOTOR_PULSE 26   // io12
+#define AXIS5_MOTOR_DIR 28     // io20
 
-#define LIMIT1 1
-#define LIMIT2 2
-#define LIMIT3 3
-#define LIMIT4 4
-#define LIMIT5 5
+#define LIMIT1 7 			   // io4
+#define LIMIT2 2               // io27
+#define LIMIT3 29              // io21
+#define LIMIT4 23              // io13
+#define LIMIT5 25              // io26
 
 int dir_axis1 = HIGH; // CW
 int dir_axis2 = HIGH; // CW
