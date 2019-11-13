@@ -59,6 +59,8 @@
 #define LIMIT4 23              // io13
 #define LIMIT5 25              // io26
 
+#define SYNC_OVERSHOOT_STEPS 2400*3
+
 int dir_axis1 = HIGH; // CW
 int dir_axis2 = HIGH; // CW
 int dir_axis3 = HIGH; // CW
@@ -71,6 +73,12 @@ int limit_3_state = 0;
 int limit_4_state = 0;
 int limit_5_state = 0;
 
+int axis_1_overshoot_dir = LOW;
+int axis_2_overshoot_dir = LOW;
+int axis_3_overshoot_dir = LOW;
+int axis_4_overshoot_dir = LOW;
+int axis_5_overshoot_dir = LOW;
+
 int axis_1_homed = 0;
 int axis_2_homed = 0;
 int axis_3_homed = 0;
@@ -81,6 +89,7 @@ int speed_delay = 550000;
 int pulse_width = 2000;
 
 int homed = 0;
+int nearly_homed = 0;
 
 int CW = HIGH;
 int CCW = LOW;
@@ -124,30 +133,36 @@ void setUp(){
   limit_3_state = digitalRead(LIMIT3);
   limit_4_state = digitalRead(LIMIT4);
   limit_5_state = digitalRead(LIMIT5);
+
  
   //get direction to move to
   if (digitalRead(LIMIT1) == HIGH) {
      dir_axis1 = CW;
+     axis_1_overshoot_dir = HIGH;
   } else {
      dir_axis1 = CCW;
   }
   if (digitalRead(LIMIT2) == HIGH) {
      dir_axis2 = CW;
+     axis_2_overshoot_dir = LOW;
   } else {
      dir_axis2 = CCW;
   }
   if (digitalRead(LIMIT3) == HIGH) {
      dir_axis3 = CW;
+     axis_3_overshoot_dir = LOW;
   } else {
      dir_axis3 = CCW;
   }
   if (digitalRead(LIMIT4) == HIGH) {
      dir_axis4 = CCW;
+     axis_4_overshoot_dir = HIGH;
   } else {
      dir_axis4 = CW;
   }
   if (digitalRead(LIMIT5) == HIGH) {
      dir_axis5 = CW;
+     axis_5_overshoot_dir = LOW;
   } else {
      dir_axis5 = CCW;
   }
@@ -161,12 +176,13 @@ void setUp(){
 }
 
 void sync_bot(void *arg){
-    while (!homed){
+    while (!nearly_homed){
         rt_task_wait_period(NULL);
         if (digitalRead(LIMIT1) == limit_1_state){
             digitalWrite(AXIS1_MOTOR_PULSE, HIGH);
             rt_task_sleep(pulse_width);
             digitalWrite(AXIS1_MOTOR_PULSE, LOW);
+            axis_1_homed = 0;
         } else{
             axis_1_homed = 1;
         }
@@ -174,6 +190,7 @@ void sync_bot(void *arg){
             digitalWrite(AXIS2_MOTOR_PULSE, HIGH);
             rt_task_sleep(pulse_width);
             digitalWrite(AXIS2_MOTOR_PULSE, LOW);
+            axis_2_homed = 0;
         } else {
             axis_2_homed = 1;
         }
@@ -181,6 +198,7 @@ void sync_bot(void *arg){
             digitalWrite(AXIS3_MOTOR_PULSE, HIGH);
             rt_task_sleep(pulse_width);
             digitalWrite(AXIS3_MOTOR_PULSE, LOW);
+            axis_3_homed = 0;
         } else {
             axis_3_homed = 1;
         }
@@ -188,6 +206,7 @@ void sync_bot(void *arg){
             digitalWrite(AXIS4_MOTOR_PULSE, HIGH);
             rt_task_sleep(pulse_width);
             digitalWrite(AXIS4_MOTOR_PULSE, LOW);
+            axis_4_homed = 0;
         } else {
             axis_4_homed = 1;
         }
@@ -195,14 +214,112 @@ void sync_bot(void *arg){
             digitalWrite(AXIS5_MOTOR_PULSE, HIGH);
             rt_task_sleep(pulse_width);
             digitalWrite(AXIS5_MOTOR_PULSE, LOW);
+            axis_5_homed = 0;
         } else {
             axis_5_homed = 1;
         }
+        //printf(" %i %i %i %i %i \n", axis_1_homed, axis_2_homed, axis_3_homed, axis_4_homed, axis_5_homed);
+        if (axis_1_homed && axis_2_homed && axis_3_homed && axis_4_homed && axis_5_homed) {
+            printf(" %i %i %i %i %i \n", axis_1_homed, axis_2_homed, axis_3_homed, axis_4_homed, axis_5_homed);
+            printf("nearly homed!\n");
+            nearly_homed = 1;
+        }
         rt_task_set_periodic(&sync_task, TM_NOW, speed_delay);
     }
-    if (axis_1_homed && axis_2_homed && axis_3_homed && axis_4_homed && axis_5_homed) {
-        homed = 1;
+
+    int stepcounter = 0;
+    digitalWrite(AXIS1_MOTOR_DIR, axis_1_overshoot_dir);
+    digitalWrite(AXIS2_MOTOR_DIR, axis_2_overshoot_dir);
+    digitalWrite(AXIS3_MOTOR_DIR, axis_3_overshoot_dir);
+    digitalWrite(AXIS4_MOTOR_DIR, axis_4_overshoot_dir);
+    digitalWrite(AXIS5_MOTOR_DIR, axis_5_overshoot_dir);
+
+    while (stepcounter < SYNC_OVERSHOOT_STEPS){
+        rt_task_wait_period(NULL);
+
+        digitalWrite(AXIS1_MOTOR_PULSE, HIGH);
+        digitalWrite(AXIS2_MOTOR_PULSE, HIGH);
+        digitalWrite(AXIS3_MOTOR_PULSE, HIGH);
+        digitalWrite(AXIS4_MOTOR_PULSE, HIGH);
+        digitalWrite(AXIS5_MOTOR_PULSE, HIGH);
+
+        rt_task_sleep(pulse_width);
+
+        digitalWrite(AXIS1_MOTOR_PULSE, LOW);
+        digitalWrite(AXIS2_MOTOR_PULSE, LOW);
+        digitalWrite(AXIS3_MOTOR_PULSE, LOW);
+        digitalWrite(AXIS4_MOTOR_PULSE, LOW);
+        digitalWrite(AXIS5_MOTOR_PULSE, LOW);
+
+        stepcounter ++;
+        rt_task_set_periodic(&sync_task, TM_NOW, speed_delay);
     }
+  
+    //read state of switches
+    limit_1_state = digitalRead(LIMIT1);
+    limit_2_state = digitalRead(LIMIT2);
+    limit_3_state = digitalRead(LIMIT3);
+    limit_4_state = digitalRead(LIMIT4);
+    limit_5_state = digitalRead(LIMIT5);
+    
+    digitalWrite(AXIS1_MOTOR_DIR, axis_1_overshoot_dir?0:1);
+    digitalWrite(AXIS2_MOTOR_DIR, axis_2_overshoot_dir?0:1);
+    digitalWrite(AXIS3_MOTOR_DIR, axis_3_overshoot_dir?0:1);
+    digitalWrite(AXIS4_MOTOR_DIR, axis_4_overshoot_dir?0:1);
+    digitalWrite(AXIS5_MOTOR_DIR, axis_5_overshoot_dir?0:1);
+    
+    while (!homed){
+        rt_task_wait_period(NULL);
+        if (digitalRead(LIMIT1) == limit_1_state){
+            digitalWrite(AXIS1_MOTOR_PULSE, HIGH);
+            rt_task_sleep(pulse_width);
+            digitalWrite(AXIS1_MOTOR_PULSE, LOW);
+            axis_1_homed = 0;
+        } else{
+            axis_1_homed = 1;
+        }
+        if (digitalRead(LIMIT2) == limit_2_state){
+            digitalWrite(AXIS2_MOTOR_PULSE, HIGH);
+            rt_task_sleep(pulse_width);
+            digitalWrite(AXIS2_MOTOR_PULSE, LOW);
+            axis_2_homed = 0;
+        } else {
+            axis_2_homed = 1;
+        }
+        if (digitalRead(LIMIT3) == limit_3_state){
+            digitalWrite(AXIS3_MOTOR_PULSE, HIGH);
+            rt_task_sleep(pulse_width);
+            digitalWrite(AXIS3_MOTOR_PULSE, LOW);
+            axis_3_homed = 0;
+        } else {
+            axis_3_homed = 1;
+        }
+        if (digitalRead(LIMIT4) == limit_4_state){
+            digitalWrite(AXIS4_MOTOR_PULSE, HIGH);
+            rt_task_sleep(pulse_width);
+            digitalWrite(AXIS4_MOTOR_PULSE, LOW);
+            axis_4_homed = 0;
+        } else {
+            axis_4_homed = 1;
+        }
+        if (digitalRead(LIMIT5) == limit_5_state){
+            digitalWrite(AXIS5_MOTOR_PULSE, HIGH);
+            rt_task_sleep(pulse_width);
+            digitalWrite(AXIS5_MOTOR_PULSE, LOW);
+            axis_5_homed = 0;
+        } else {
+            axis_5_homed = 1;
+        }
+        //printf(" %i %i %i %i %i \n", axis_1_homed, axis_2_homed, axis_3_homed, axis_4_homed, axis_5_homed);
+        if (axis_1_homed && axis_2_homed && axis_3_homed && axis_4_homed && axis_5_homed) {
+            printf(" %i %i %i %i %i \n", axis_1_homed, axis_2_homed, axis_3_homed, axis_4_homed, axis_5_homed);
+            printf("really homed!\n");
+            homed = 1;
+        }
+        rt_task_set_periodic(&sync_task, TM_NOW, speed_delay);
+    }
+
+    alarm(1);
 }
 
 int main(int argc, char* argv[])
