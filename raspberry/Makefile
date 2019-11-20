@@ -2,7 +2,7 @@ SKIN=alchemy
 MAIN_SRC=driver
 TARGET=irb6-driver
 
-LM=-lm -lwiringPi
+LM=-lm -lwiringPi -llua -Llua-5.2.3
 
 CFLAGS := $(shell xeno-config --skin=alchemy --cflags)
 LDFLAGS := $(LM) $(shell xeno-config --skin=alchemy --ldflags)

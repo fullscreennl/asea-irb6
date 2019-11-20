@@ -358,7 +358,49 @@ void sync_bot(void *arg){
     _digitalRead(LIMIT4);
     _digitalRead(LIMIT5);
 
+    //alarm(1);
+
+}
+
+int home(){
+    rt_task_set_periodic(&sync_task, TM_NOW, 1000000);
+    rt_task_create(&sync_task, "sync-task", 0, 99, 0);
+    rt_task_start(&sync_task, &sync_bot, NULL);
+    pause();
+    rt_task_delete(&sync_task);
+    return 0;
+}
+
+int axis_to_move = 0;
+int steps_to_move = 0;
+
+void move_bot(){
+    int numsteps = steps_to_move;
+    printf("axis to move %i\n", axis_to_move);
+    while (numsteps > 0){
+        rt_task_wait_period(NULL);
+        digitalWrite(axis_to_move, HIGH);
+        rt_task_sleep(2000);
+        digitalWrite(axis_to_move, LOW);
+        rt_task_set_periodic(&sync_task, TM_NOW, 1000000);
+        numsteps --;
+        printf("steps left %i\n",numsteps);
+    }
+    printf("loop done steps left %i\n",numsteps);
     alarm(1);
+}
+
+
+int moveTo(int axis, int steps){
+    printf("move to %i %i\n",axis, steps);
+    axis_to_move = axis;
+    steps_to_move = steps;
+    rt_task_set_periodic(&sync_task, TM_NOW, 1000000);
+    rt_task_create(&sync_task, "sync-task", 0, 99, 0);
+    rt_task_start(&sync_task, &move_bot, NULL);
+    digitalWrite(AXIS1_MOTOR_DIR, CW);
+    pause();
+    rt_task_delete(&sync_task);
 }
 
 int main(int argc, char* argv[])
@@ -369,10 +411,7 @@ int main(int argc, char* argv[])
     mlockall(MCL_CURRENT|MCL_FUTURE);
     wiringPiSetup();
     setUp();
-    rt_task_set_periodic(&sync_task, TM_NOW, 1000000);
-    rt_task_create(&sync_task, "sync-task", 0, 99, 0);
-    rt_task_start(&sync_task, &sync_bot, NULL);
-    pause();
-    rt_task_delete(&sync_task);
+    home();
+    moveTo(AXIS1_MOTOR_PULSE, 20000);
     return 0;
 }
