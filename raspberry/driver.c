@@ -59,7 +59,7 @@
 #define LIMIT4 23              // io13
 #define LIMIT5 25              // io26
 
-#define SYNC_OVERSHOOT_STEPS 2400*3
+#define SYNC_OVERSHOOT_STEPS 10000
 
 int dir_axis1 = HIGH; // CW
 int dir_axis2 = HIGH; // CW
@@ -76,7 +76,7 @@ int limit_5_state = 0;
 int axis_1_overshoot_dir = LOW;
 int axis_2_overshoot_dir = LOW;
 int axis_3_overshoot_dir = LOW;
-int axis_4_overshoot_dir = LOW;
+int axis_4_overshoot_dir = HIGH;
 int axis_5_overshoot_dir = LOW;
 
 int axis_1_homed = 0;
@@ -85,7 +85,7 @@ int axis_3_homed = 0;
 int axis_4_homed = 0;
 int axis_5_homed = 0;
 
-int speed_delay = 550000;
+int speed_delay = 200000;
 int pulse_width = 2000;
 
 int homed = 0;
@@ -98,6 +98,27 @@ RT_TASK sync_task;
 
 
 void catch_signal(int sig){
+}
+
+int _digitalRead(int input){
+    int hs = 0;
+    int ls = 0;
+    while(1){
+        int state = digitalRead(input); 
+        if(state == HIGH){
+            hs ++;
+        }else{
+            ls ++;
+        }
+        if(hs > 100){
+            printf("h: %i l: %i\n", hs, ls);
+            return HIGH;
+        }
+        if(ls > 100){
+            printf("h: %i l: %i\n", hs, ls);
+            return LOW;
+        }
+    }
 }
 
 void setUp(){
@@ -128,41 +149,41 @@ void setUp(){
   pullUpDnControl(LIMIT5, PUD_UP);
 
   //read state of switches
-  limit_1_state = digitalRead(LIMIT1);
-  limit_2_state = digitalRead(LIMIT2);
-  limit_3_state = digitalRead(LIMIT3);
-  limit_4_state = digitalRead(LIMIT4);
-  limit_5_state = digitalRead(LIMIT5);
+  limit_1_state = _digitalRead(LIMIT1);
+  limit_2_state = _digitalRead(LIMIT2);
+  limit_3_state = _digitalRead(LIMIT3);
+  limit_4_state = _digitalRead(LIMIT4);
+  limit_5_state = _digitalRead(LIMIT5);
 
  
   //get direction to move to
-  if (digitalRead(LIMIT1) == HIGH) {
+  if (limit_1_state == HIGH) {
      dir_axis1 = CW;
-     axis_1_overshoot_dir = HIGH;
+     //axis_1_overshoot_dir = HIGH;
   } else {
      dir_axis1 = CCW;
   }
-  if (digitalRead(LIMIT2) == HIGH) {
+  if (limit_2_state == HIGH) {
      dir_axis2 = CW;
-     axis_2_overshoot_dir = LOW;
+     //axis_2_overshoot_dir = LOW;
   } else {
      dir_axis2 = CCW;
   }
-  if (digitalRead(LIMIT3) == HIGH) {
+  if (limit_3_state == HIGH) {
      dir_axis3 = CW;
-     axis_3_overshoot_dir = LOW;
+     //axis_3_overshoot_dir = LOW;
   } else {
      dir_axis3 = CCW;
   }
-  if (digitalRead(LIMIT4) == HIGH) {
+  if (limit_4_state == HIGH) {
      dir_axis4 = CCW;
-     axis_4_overshoot_dir = HIGH;
+     //axis_4_overshoot_dir = HIGH;
   } else {
      dir_axis4 = CW;
   }
-  if (digitalRead(LIMIT5) == HIGH) {
+  if (limit_5_state == HIGH) {
      dir_axis5 = CW;
-     axis_5_overshoot_dir = LOW;
+     //axis_5_overshoot_dir = HIGH;
   } else {
      dir_axis5 = CCW;
   }
@@ -176,6 +197,7 @@ void setUp(){
 }
 
 void sync_bot(void *arg){
+    int nearly_homed_count = 0;
     while (!nearly_homed){
         rt_task_wait_period(NULL);
         if (digitalRead(LIMIT1) == limit_1_state){
@@ -220,9 +242,13 @@ void sync_bot(void *arg){
         }
         //printf(" %i %i %i %i %i \n", axis_1_homed, axis_2_homed, axis_3_homed, axis_4_homed, axis_5_homed);
         if (axis_1_homed && axis_2_homed && axis_3_homed && axis_4_homed && axis_5_homed) {
-            printf(" %i %i %i %i %i \n", axis_1_homed, axis_2_homed, axis_3_homed, axis_4_homed, axis_5_homed);
-            printf("nearly homed!\n");
-            nearly_homed = 1;
+        //if (axis_4_homed && axis_5_homed) {
+            nearly_homed_count ++;
+            if(nearly_homed_count > 100){
+                printf(" %i %i %i %i %i \n", axis_1_homed, axis_2_homed, axis_3_homed, axis_4_homed, axis_5_homed);
+                printf("nearly homed!\n");
+                nearly_homed = 1;
+            }
         }
         rt_task_set_periodic(&sync_task, TM_NOW, speed_delay);
     }
@@ -256,18 +282,20 @@ void sync_bot(void *arg){
     }
   
     //read state of switches
-    limit_1_state = digitalRead(LIMIT1);
-    limit_2_state = digitalRead(LIMIT2);
-    limit_3_state = digitalRead(LIMIT3);
-    limit_4_state = digitalRead(LIMIT4);
-    limit_5_state = digitalRead(LIMIT5);
+    limit_1_state = _digitalRead(LIMIT1);
+    limit_2_state = _digitalRead(LIMIT2);
+    limit_3_state = _digitalRead(LIMIT3);
+    limit_4_state = _digitalRead(LIMIT4);
+    limit_5_state = _digitalRead(LIMIT5);
     
     digitalWrite(AXIS1_MOTOR_DIR, axis_1_overshoot_dir?0:1);
     digitalWrite(AXIS2_MOTOR_DIR, axis_2_overshoot_dir?0:1);
     digitalWrite(AXIS3_MOTOR_DIR, axis_3_overshoot_dir?0:1);
     digitalWrite(AXIS4_MOTOR_DIR, axis_4_overshoot_dir?0:1);
     digitalWrite(AXIS5_MOTOR_DIR, axis_5_overshoot_dir?0:1);
-    
+   
+    int really_homed_count = 0;
+
     while (!homed){
         rt_task_wait_period(NULL);
         if (digitalRead(LIMIT1) == limit_1_state){
@@ -312,12 +340,23 @@ void sync_bot(void *arg){
         }
         //printf(" %i %i %i %i %i \n", axis_1_homed, axis_2_homed, axis_3_homed, axis_4_homed, axis_5_homed);
         if (axis_1_homed && axis_2_homed && axis_3_homed && axis_4_homed && axis_5_homed) {
-            printf(" %i %i %i %i %i \n", axis_1_homed, axis_2_homed, axis_3_homed, axis_4_homed, axis_5_homed);
-            printf("really homed!\n");
-            homed = 1;
+        //if (axis_4_homed && axis_5_homed) {
+            really_homed_count ++;
+            if(really_homed_count > 100){
+                printf(" %i %i %i %i %i \n", axis_1_homed, axis_2_homed, axis_3_homed, axis_4_homed, axis_5_homed);
+                printf("really homed!\n");
+                homed = 1;
+            }
         }
         rt_task_set_periodic(&sync_task, TM_NOW, speed_delay);
     }
+    
+    //read state of switches
+    _digitalRead(LIMIT1);
+    _digitalRead(LIMIT2);
+    _digitalRead(LIMIT3);
+    _digitalRead(LIMIT4);
+    _digitalRead(LIMIT5);
 
     alarm(1);
 }
