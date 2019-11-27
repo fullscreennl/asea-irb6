@@ -2,6 +2,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#include <stdlib.h>
 
 #include <wiringPi.h>
 #include <boilerplate/ancillaries.h>
@@ -371,34 +372,169 @@ int home(){
     return 0;
 }
 
-int axis_to_move = 0;
-int steps_to_move = 0;
+
+const int move_max_delay = 400000;
+int move_min_delay = 25000;
+int slope = 18000;
+int start_slope = 18000;
+int move_delay = 400000;
+int speed_delta = 0; 
+int increment = 0;
+
+int steps_to_move_a1 = 0;
+int steps_to_move_a2 = 0;
+int steps_to_move_a3 = 0;
+int steps_to_move_a4 = 0;
+int steps_to_move_a5 = 0;
+
+int steps_a1 = 0;
+int steps_a2 = 0;
+int steps_a3 = 0;
+int steps_a4 = 0;
+int steps_a5 = 0;
+
+int speed(int total_steps, int steps_left){
+    int state = 1; // 1 = easing in, 2 = max speed, 3 = easing out
+    if (total_steps - steps_left < slope){
+        state = 1; 
+    }else if(steps_left < slope){
+        state = 3;
+    }else{
+        state = 2;
+    }
+    //printf("state : %i delay : %i steps left: %i \n", state, move_delay, steps_left);
+    if (state == 1){
+        move_delay -= increment;
+        if(move_delay < move_min_delay){
+           move_delay = move_min_delay;
+        }    
+    }else if(state == 3){
+        move_delay += increment;
+        if(move_delay >  move_max_delay){
+           move_delay = move_max_delay;
+        }    
+    }
+}
 
 void move_bot(){
-    int numsteps = steps_to_move;
-    printf("axis to move %i\n", axis_to_move);
-    while (numsteps > 0){
+    speed_delta = move_max_delay - move_min_delay; 
+    increment = speed_delta / start_slope;
+    int numsteps1 = steps_to_move_a1;
+    int numsteps2 = steps_to_move_a2;
+    int numsteps3 = steps_to_move_a3;
+    int numsteps4 = steps_to_move_a4;
+    int numsteps5 = steps_to_move_a5;
+    int done = 0;
+    //printf("axis to move %i\n", axis_to_move);
+    while(!done){
         rt_task_wait_period(NULL);
-        digitalWrite(axis_to_move, HIGH);
+        if (numsteps1 > 0){
+            digitalWrite(AXIS1_MOTOR_PULSE, HIGH);
+            numsteps1 --;
+            speed(steps_to_move_a1, numsteps1);
+        }
+        if (numsteps2 > 0){
+            digitalWrite(AXIS2_MOTOR_PULSE, HIGH);
+            numsteps2 --;
+        }
+        if (numsteps3 > 0){
+            digitalWrite(AXIS3_MOTOR_PULSE, HIGH);
+            numsteps3 --;
+        }
+        if (numsteps4 > 0){
+            digitalWrite(AXIS4_MOTOR_PULSE, HIGH);
+            numsteps4 --;
+        }
+        if (numsteps5 > 0){
+            digitalWrite(AXIS5_MOTOR_PULSE, HIGH);
+            numsteps5 --;
+        }
         rt_task_sleep(2000);
-        digitalWrite(axis_to_move, LOW);
-        rt_task_set_periodic(&sync_task, TM_NOW, 1000000);
-        numsteps --;
-        printf("steps left %i\n",numsteps);
+        digitalWrite(AXIS1_MOTOR_PULSE, LOW);
+        digitalWrite(AXIS2_MOTOR_PULSE, LOW);
+        digitalWrite(AXIS3_MOTOR_PULSE, LOW);
+        digitalWrite(AXIS4_MOTOR_PULSE, LOW);
+        digitalWrite(AXIS5_MOTOR_PULSE, LOW);
+        rt_task_set_periodic(&sync_task, TM_NOW, move_delay);
+        done = numsteps1 == 0 && numsteps2 == 0 && numsteps3 == 0 && numsteps4 == 0 && numsteps5 == 0; 
     }
-    printf("loop done steps left %i\n",numsteps);
-    alarm(1);
+    printf("loop done steps left %i\n",numsteps1);
 }
 
 
-int moveTo(int axis, int steps){
-    printf("move to %i %i\n",axis, steps);
-    axis_to_move = axis;
-    steps_to_move = steps;
-    rt_task_set_periodic(&sync_task, TM_NOW, 1000000);
+int moveTo(int steps1, int steps2, int steps3, int steps4, int steps5){
+    printf("move to %i %i %i %i %i\n", steps1, steps2, steps3, steps4, steps5);
+    steps_to_move_a1 = abs(steps1 - steps_a1);
+    steps_to_move_a2 = abs(steps2 - steps_a2);
+    steps_to_move_a3 = abs(steps3 - steps_a3);
+    steps_to_move_a4 = abs(steps4 - steps_a4);
+    steps_to_move_a5 = abs(steps5 - steps_a5);
+    if(steps_to_move_a1 < (start_slope*2)){
+        slope = steps_to_move_a1 / 2; 
+    }else{
+        slope = start_slope;
+    }
+    printf("slope %i \n", slope);
+    //rt_task_set_periodic(&sync_task, TM_NOW, move_delay);
+    //rt_task_create(&sync_task, "sync-task", 0, 99, 0);
+    //rt_task_start(&sync_task, &move_bot, NULL);
+    if(steps1 < steps_a1){
+        digitalWrite(AXIS1_MOTOR_DIR, CCW);
+    }else{
+        digitalWrite(AXIS1_MOTOR_DIR, CW);
+    }
+    if(steps2 < steps_a2){
+        digitalWrite(AXIS2_MOTOR_DIR, CCW);
+    }else{
+        digitalWrite(AXIS2_MOTOR_DIR, CW);
+    }
+    if(steps3 < steps_a3){
+        digitalWrite(AXIS3_MOTOR_DIR, CCW);
+    }else{
+        digitalWrite(AXIS3_MOTOR_DIR, CW);
+    }
+    if(steps4 < steps_a4){
+        digitalWrite(AXIS4_MOTOR_DIR, CCW);
+    }else{
+        digitalWrite(AXIS4_MOTOR_DIR, CW);
+    }
+    if(steps5 < steps_a5){
+        digitalWrite(AXIS5_MOTOR_DIR, CCW);
+    }else{
+        digitalWrite(AXIS5_MOTOR_DIR, CW);
+    }
+    steps_a1 = steps1;
+    steps_a2 = steps2;
+    steps_a3 = steps3;
+    steps_a4 = steps4;
+    steps_a5 = steps5;
+    move_bot();
+    //pause();
+    //rt_task_delete(&sync_task);
+}
+
+void program(){
+    //moveTo(-2000,0, 0, 0, 0);
+    moveTo(-70000, 0, 0, 0, 0);
+    moveTo(70000, 0, 0, 0, 0);
+    //moveTo(18000, 0, 0, 0, 0);
+    //moveTo(40000, 0, 0, 0, 0);
+    //moveTo(0, 0, -5000, 10000, 5000);
+    //moveTo(0, 2000, 5000, 10000, 5000);
+    //moveTo(0, 2000, 5000, 10000, 5000);
+    //moveTo(0, -2000, -5000, 10000, 5000);
+    //moveTo(40000, -2000, -5000, 10000, 5000);
+    //moveTo(40000, -22000, 5000, 0, 0);
+    //moveTo(40000, 22000, 5000, 0, 0);
+    //moveTo(40000, -22000, 5000, 0, 0);
+    moveTo(0, 0, 0, 0, 0);
+    alarm(1);
+}
+
+int runProgram(){
+    rt_task_set_periodic(&sync_task, TM_NOW, move_delay);
     rt_task_create(&sync_task, "sync-task", 0, 99, 0);
-    rt_task_start(&sync_task, &move_bot, NULL);
-    digitalWrite(AXIS1_MOTOR_DIR, CW);
+    rt_task_start(&sync_task, &program, NULL);
     pause();
     rt_task_delete(&sync_task);
 }
@@ -411,7 +547,7 @@ int main(int argc, char* argv[])
     mlockall(MCL_CURRENT|MCL_FUTURE);
     wiringPiSetup();
     setUp();
-    home();
-    moveTo(AXIS1_MOTOR_PULSE, 20000);
+    //home();
+    runProgram();
     return 0;
 }
