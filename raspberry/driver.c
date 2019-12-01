@@ -360,7 +360,7 @@ void sync_bot(void *arg){
     _digitalRead(LIMIT4);
     _digitalRead(LIMIT5);
 
-    //alarm(1);
+    alarm(1);
 
 }
 
@@ -450,19 +450,19 @@ void move_bot(){
             digitalWrite(AXIS1_MOTOR_PULSE, HIGH);
             c1 ++;
         } 
-        if(fmod(counter, f2) < 1.0  && c2 < numsteps1){
+        if(fmod(counter, f2) < 1.0  && c2 < numsteps2){
             digitalWrite(AXIS2_MOTOR_PULSE, HIGH);
             c2 ++;
         } 
-        if(fmod(counter, f3) < 1.0  && c3 < numsteps1){
+        if(fmod(counter, f3) < 1.0  && c3 < numsteps3){
             digitalWrite(AXIS3_MOTOR_PULSE, HIGH);
             c3 ++;
         } 
-        if(fmod(counter, f4) < 1.0  && c4 < numsteps1){
+        if(fmod(counter, f4) < 1.0  && c4 < numsteps4){
             digitalWrite(AXIS4_MOTOR_PULSE, HIGH);
             c4 ++;
         } 
-        if(fmod(counter, f5) < 1.0  && c5 < numsteps1){
+        if(fmod(counter, f5) < 1.0  && c5 < numsteps5){
             digitalWrite(AXIS5_MOTOR_PULSE, HIGH);
             c5 ++;
         } 
@@ -477,55 +477,6 @@ void move_bot(){
     }
     printf("loop done steps taken %i %i %i %i %i\n", c1, c2, c3, c4, c5);
 }
-
-void movebot(){
-    speed_delta = move_max_delay - move_min_delay; 
-    increment = speed_delta / start_slope;
-    int numsteps1 = steps_to_move_a1;
-    int numsteps2 = steps_to_move_a2;
-    int numsteps3 = steps_to_move_a3;
-    int numsteps4 = steps_to_move_a4;
-    int numsteps5 = steps_to_move_a5;
-    int done = 0;
-    int longest = max(numsteps1, numsteps2, numsteps3, numsteps4, numsteps5);
-    printf("max %i\n", longest);
-    float r = fmod(700000, 4.78987);
-    printf("fmod %f\n",r);
-    while(!done){
-        rt_task_wait_period(NULL);
-        if (numsteps1 > 0){
-            digitalWrite(AXIS1_MOTOR_PULSE, HIGH);
-            numsteps1 --;
-            speed(steps_to_move_a1, numsteps1);
-        }
-        if (numsteps2 > 0){
-            digitalWrite(AXIS2_MOTOR_PULSE, HIGH);
-            numsteps2 --;
-        }
-        if (numsteps3 > 0){
-            digitalWrite(AXIS3_MOTOR_PULSE, HIGH);
-            numsteps3 --;
-        }
-        if (numsteps4 > 0){
-            digitalWrite(AXIS4_MOTOR_PULSE, HIGH);
-            numsteps4 --;
-        }
-        if (numsteps5 > 0){
-            digitalWrite(AXIS5_MOTOR_PULSE, HIGH);
-            numsteps5 --;
-        }
-        rt_task_sleep(2000);
-        digitalWrite(AXIS1_MOTOR_PULSE, LOW);
-        digitalWrite(AXIS2_MOTOR_PULSE, LOW);
-        digitalWrite(AXIS3_MOTOR_PULSE, LOW);
-        digitalWrite(AXIS4_MOTOR_PULSE, LOW);
-        digitalWrite(AXIS5_MOTOR_PULSE, LOW);
-        rt_task_set_periodic(&sync_task, TM_NOW, move_delay);
-        done = numsteps1 == 0 && numsteps2 == 0 && numsteps3 == 0 && numsteps4 == 0 && numsteps5 == 0; 
-    }
-    printf("loop done steps left %i\n",numsteps1);
-}
-
 
 int moveTo(int steps1, int steps2, int steps3, int steps4, int steps5){
     printf("move to %i %i %i %i %i\n", steps1, steps2, steps3, steps4, steps5);
@@ -579,20 +530,8 @@ int moveTo(int steps1, int steps2, int steps3, int steps4, int steps5){
 }
 
 void program(){
-    //moveTo(-2000,0, 0, 0, 0);
-    moveTo(70000, 10000, -10000, 10000, 10000);
-    moveTo(18000, 0, 0, 0, 0);
-    moveTo(-70000, 15000, -15000, 10000, 50000);
-    moveTo(-70000, -15000, 15000, 10000, 50000);
-    //moveTo(40000, 0, 0, 0, 0);
-    //moveTo(0, 0, -5000, 10000, 5000);
-    //moveTo(0, 2000, 5000, 10000, 5000);
-    //moveTo(0, 2000, 5000, 10000, 5000);
-    //moveTo(0, -2000, -5000, 10000, 5000);
-    //moveTo(40000, -2000, -5000, 10000, 5000);
-    //moveTo(40000, -22000, 5000, 0, 0);
-    //moveTo(40000, 22000, 5000, 0, 0);
-    //moveTo(40000, -22000, 5000, 0, 0);
+    moveTo(0, 0, 0, 0, 10000);
+    moveTo(0, 0, 0, 50000, 10000);
     moveTo(0, 0, 0, 0, 0);
     alarm(1);
 }
@@ -613,7 +552,7 @@ int main(int argc, char* argv[])
     mlockall(MCL_CURRENT|MCL_FUTURE);
     wiringPiSetup();
     setUp();
-    home();
+    //home();
     runProgram();
     return 0;
 }
