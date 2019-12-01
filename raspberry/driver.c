@@ -436,6 +436,12 @@ void move_bot(){
     int numsteps5 = steps_to_move_a5;
     int done = 0;
     int longest = max(numsteps1, numsteps2, numsteps3, numsteps4, numsteps5);
+    if(longest < (start_slope*2)){
+        slope = longest / 2; 
+    }else{
+        slope = start_slope;
+    }
+    printf("slope %i \n", slope);
     int c1 = 0, c2 = 0, c3 = 0, c4 = 0, c5 = 0;
     int counter = 0;
     double f1 = (float)longest/numsteps1;
@@ -485,15 +491,6 @@ int moveTo(int steps1, int steps2, int steps3, int steps4, int steps5){
     steps_to_move_a3 = abs(steps3 - steps_a3);
     steps_to_move_a4 = abs(steps4 - steps_a4);
     steps_to_move_a5 = abs(steps5 - steps_a5);
-    if(steps_to_move_a1 < (start_slope*2)){
-        slope = steps_to_move_a1 / 2; 
-    }else{
-        slope = start_slope;
-    }
-    printf("slope %i \n", slope);
-    //rt_task_set_periodic(&sync_task, TM_NOW, move_delay);
-    //rt_task_create(&sync_task, "sync-task", 0, 99, 0);
-    //rt_task_start(&sync_task, &move_bot, NULL);
     if(steps1 < steps_a1){
         digitalWrite(AXIS1_MOTOR_DIR, CCW);
     }else{
@@ -525,13 +522,12 @@ int moveTo(int steps1, int steps2, int steps3, int steps4, int steps5){
     steps_a4 = steps4;
     steps_a5 = steps5;
     move_bot();
-    //pause();
-    //rt_task_delete(&sync_task);
 }
 
 void program(){
     moveTo(0, 0, 0, 0, 10000);
     moveTo(0, 0, 0, 50000, 10000);
+    moveTo(70000, -20000, 20000, 0, 0);
     moveTo(0, 0, 0, 0, 0);
     alarm(1);
 }
