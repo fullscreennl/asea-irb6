@@ -374,10 +374,10 @@ int home(){
 }
 
 
-const int move_max_delay = 400000;
-int move_min_delay = 25000;
-int slope = 18000;
-int start_slope = 18000;
+const int move_max_delay = 250000;
+int move_min_delay = 20000;
+int slope = 20000;
+int start_slope = 20000;
 int move_delay = 400000;
 int speed_delta = 0; 
 int increment = 0;
