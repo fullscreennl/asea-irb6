@@ -63,35 +63,8 @@
 
 #define SYNC_OVERSHOOT_STEPS 10000
 
-int dir_axis1 = HIGH; // CW
-int dir_axis2 = HIGH; // CW
-int dir_axis3 = HIGH; // CW
-int dir_axis4 = HIGH; // CW
-int dir_axis5 = HIGH; // CW
-
-int limit_1_state = 0;
-int limit_2_state = 0;
-int limit_3_state = 0;
-int limit_4_state = 0;
-int limit_5_state = 0;
-
-int axis_1_overshoot_dir = LOW;
-int axis_2_overshoot_dir = LOW;
-int axis_3_overshoot_dir = LOW;
-int axis_4_overshoot_dir = HIGH;
-int axis_5_overshoot_dir = LOW;
-
-int axis_1_homed = 0;
-int axis_2_homed = 0;
-int axis_3_homed = 0;
-int axis_4_homed = 0;
-int axis_5_homed = 0;
-
-int speed_delay = 200000;
-int pulse_width = 2000;
-
-int homed = 0;
-int nearly_homed = 0;
+#define SYNC_DELAY 20000
+#define PULSE_WIDTH 2000
 
 int CW = HIGH;
 int CCW = LOW;
@@ -124,87 +97,111 @@ int _digitalRead(int input){
 }
 
 void setUp(){
-  //motors
-  pinMode(AXIS1_MOTOR_PULSE, OUTPUT);
-  pinMode(AXIS1_MOTOR_DIR, OUTPUT);
-  pinMode(AXIS2_MOTOR_PULSE, OUTPUT);
-  pinMode(AXIS2_MOTOR_DIR, OUTPUT);
-  pinMode(AXIS3_MOTOR_PULSE, OUTPUT);
-  pinMode(AXIS3_MOTOR_DIR, OUTPUT);
-  pinMode(AXIS4_MOTOR_PULSE, OUTPUT);
-  pinMode(AXIS4_MOTOR_DIR, OUTPUT);  
-  pinMode(AXIS5_MOTOR_PULSE, OUTPUT);
-  pinMode(AXIS5_MOTOR_DIR, OUTPUT);  
 
-  //sync switches
-  pinMode(LIMIT1, INPUT);
-  pinMode(LIMIT2, INPUT);
-  pinMode(LIMIT3, INPUT);
-  pinMode(LIMIT4, INPUT);
-  pinMode(LIMIT5, INPUT);
+    int dir_axis1 = HIGH; // CW
+    int dir_axis2 = HIGH; // CW
+    int dir_axis3 = HIGH; // CW
+    int dir_axis4 = HIGH; // CW
+    int dir_axis5 = HIGH; // CW
 
-  //pull up
-  pullUpDnControl(LIMIT1, PUD_UP);
-  pullUpDnControl(LIMIT2, PUD_UP);
-  pullUpDnControl(LIMIT3, PUD_UP);
-  pullUpDnControl(LIMIT4, PUD_UP);
-  pullUpDnControl(LIMIT5, PUD_UP);
+    //motors
+    pinMode(AXIS1_MOTOR_PULSE, OUTPUT);
+    pinMode(AXIS1_MOTOR_DIR, OUTPUT);
+    pinMode(AXIS2_MOTOR_PULSE, OUTPUT);
+    pinMode(AXIS2_MOTOR_DIR, OUTPUT);
+    pinMode(AXIS3_MOTOR_PULSE, OUTPUT);
+    pinMode(AXIS3_MOTOR_DIR, OUTPUT);
+    pinMode(AXIS4_MOTOR_PULSE, OUTPUT);
+    pinMode(AXIS4_MOTOR_DIR, OUTPUT);  
+    pinMode(AXIS5_MOTOR_PULSE, OUTPUT);
+    pinMode(AXIS5_MOTOR_DIR, OUTPUT);  
 
-  //read state of switches
-  limit_1_state = _digitalRead(LIMIT1);
-  limit_2_state = _digitalRead(LIMIT2);
-  limit_3_state = _digitalRead(LIMIT3);
-  limit_4_state = _digitalRead(LIMIT4);
-  limit_5_state = _digitalRead(LIMIT5);
+    //sync switches
+    pinMode(LIMIT1, INPUT);
+    pinMode(LIMIT2, INPUT);
+    pinMode(LIMIT3, INPUT);
+    pinMode(LIMIT4, INPUT);
+    pinMode(LIMIT5, INPUT);
 
+    //pull up
+    pullUpDnControl(LIMIT1, PUD_UP);
+    pullUpDnControl(LIMIT2, PUD_UP);
+    pullUpDnControl(LIMIT3, PUD_UP);
+    pullUpDnControl(LIMIT4, PUD_UP);
+    pullUpDnControl(LIMIT5, PUD_UP);
+
+    //read state of switches
+    int limit_1_state = _digitalRead(LIMIT1);
+    int limit_2_state = _digitalRead(LIMIT2);
+    int limit_3_state = _digitalRead(LIMIT3);
+    int limit_4_state = _digitalRead(LIMIT4);
+    int limit_5_state = _digitalRead(LIMIT5);
  
-  //get direction to move to
-  if (limit_1_state == HIGH) {
-     dir_axis1 = CW;
-     //axis_1_overshoot_dir = HIGH;
-  } else {
-     dir_axis1 = CCW;
-  }
-  if (limit_2_state == HIGH) {
-     dir_axis2 = CW;
-     //axis_2_overshoot_dir = LOW;
-  } else {
-     dir_axis2 = CCW;
-  }
-  if (limit_3_state == HIGH) {
-     dir_axis3 = CW;
-     //axis_3_overshoot_dir = LOW;
-  } else {
-     dir_axis3 = CCW;
-  }
-  if (limit_4_state == HIGH) {
-     dir_axis4 = CCW;
-     //axis_4_overshoot_dir = HIGH;
-  } else {
-     dir_axis4 = CW;
-  }
-  if (limit_5_state == HIGH) {
-     dir_axis5 = CW;
-     //axis_5_overshoot_dir = HIGH;
-  } else {
-     dir_axis5 = CCW;
-  }
+    //get direction to move to
+    if (limit_1_state == HIGH) {
+        dir_axis1 = CW;
+    } else {
+        dir_axis1 = CCW;
+    }
+    if (limit_2_state == HIGH) {
+        dir_axis2 = CW;
+    } else {
+        dir_axis2 = CCW;
+    }
+    if (limit_3_state == HIGH) {
+        dir_axis3 = CW;
+    } else {
+        dir_axis3 = CCW;
+    }
+    if (limit_4_state == HIGH) {
+        dir_axis4 = CCW;
+    } else {
+        dir_axis4 = CW;
+    }
+    if (limit_5_state == HIGH) {
+        dir_axis5 = CW;
+    } else {
+        dir_axis5 = CCW;
+    }
 
-  digitalWrite(AXIS1_MOTOR_DIR, dir_axis1);
-  digitalWrite(AXIS2_MOTOR_DIR, dir_axis2);
-  digitalWrite(AXIS3_MOTOR_DIR, dir_axis3);
-  digitalWrite(AXIS4_MOTOR_DIR, dir_axis4);
-  digitalWrite(AXIS5_MOTOR_DIR, dir_axis5);
+    digitalWrite(AXIS1_MOTOR_DIR, dir_axis1);
+    digitalWrite(AXIS2_MOTOR_DIR, dir_axis2);
+    digitalWrite(AXIS3_MOTOR_DIR, dir_axis3);
+    digitalWrite(AXIS4_MOTOR_DIR, dir_axis4);
+    digitalWrite(AXIS5_MOTOR_DIR, dir_axis5);
 
 }
 
 void sync_bot(void *arg){
+    int homed = 0;
+    int nearly_homed = 0;
+
+    int axis_1_overshoot_dir = LOW;
+    int axis_2_overshoot_dir = LOW;
+    int axis_3_overshoot_dir = LOW;
+    int axis_4_overshoot_dir = HIGH;
+    int axis_5_overshoot_dir = LOW;
+
+    int axis_1_homed = 0;
+    int axis_2_homed = 0;
+    int axis_3_homed = 0;
+    int axis_4_homed = 0;
+    int axis_5_homed = 0;
+
     int nearly_homed_count = 0;
+    
+    //read state of switches
+    int limit_1_state = _digitalRead(LIMIT1);
+    int limit_2_state = _digitalRead(LIMIT2);
+    int limit_3_state = _digitalRead(LIMIT3);
+    int limit_4_state = _digitalRead(LIMIT4);
+    int limit_5_state = _digitalRead(LIMIT5);
+
     while (!nearly_homed){
         rt_task_wait_period(NULL);
         if (digitalRead(LIMIT1) == limit_1_state){
             digitalWrite(AXIS1_MOTOR_PULSE, HIGH);
-            rt_task_sleep(pulse_width);
+            rt_task_sleep(PULSE_WIDTH);
             digitalWrite(AXIS1_MOTOR_PULSE, LOW);
             axis_1_homed = 0;
         } else{
@@ -212,7 +209,7 @@ void sync_bot(void *arg){
         }
         if (digitalRead(LIMIT2) == limit_2_state){
             digitalWrite(AXIS2_MOTOR_PULSE, HIGH);
-            rt_task_sleep(pulse_width);
+            rt_task_sleep(PULSE_WIDTH);
             digitalWrite(AXIS2_MOTOR_PULSE, LOW);
             axis_2_homed = 0;
         } else {
@@ -220,7 +217,7 @@ void sync_bot(void *arg){
         }
         if (digitalRead(LIMIT3) == limit_3_state){
             digitalWrite(AXIS3_MOTOR_PULSE, HIGH);
-            rt_task_sleep(pulse_width);
+            rt_task_sleep(PULSE_WIDTH);
             digitalWrite(AXIS3_MOTOR_PULSE, LOW);
             axis_3_homed = 0;
         } else {
@@ -228,7 +225,7 @@ void sync_bot(void *arg){
         }
         if (digitalRead(LIMIT4) == limit_4_state){
             digitalWrite(AXIS4_MOTOR_PULSE, HIGH);
-            rt_task_sleep(pulse_width);
+            rt_task_sleep(PULSE_WIDTH);
             digitalWrite(AXIS4_MOTOR_PULSE, LOW);
             axis_4_homed = 0;
         } else {
@@ -236,7 +233,7 @@ void sync_bot(void *arg){
         }
         if (digitalRead(LIMIT5) == limit_5_state){
             digitalWrite(AXIS5_MOTOR_PULSE, HIGH);
-            rt_task_sleep(pulse_width);
+            rt_task_sleep(PULSE_WIDTH);
             digitalWrite(AXIS5_MOTOR_PULSE, LOW);
             axis_5_homed = 0;
         } else {
@@ -252,7 +249,7 @@ void sync_bot(void *arg){
                 nearly_homed = 1;
             }
         }
-        rt_task_set_periodic(&sync_task, TM_NOW, speed_delay);
+        rt_task_set_periodic(&sync_task, TM_NOW, SYNC_DELAY);
     }
 
     int stepcounter = 0;
@@ -271,7 +268,7 @@ void sync_bot(void *arg){
         digitalWrite(AXIS4_MOTOR_PULSE, HIGH);
         digitalWrite(AXIS5_MOTOR_PULSE, HIGH);
 
-        rt_task_sleep(pulse_width);
+        rt_task_sleep(PULSE_WIDTH);
 
         digitalWrite(AXIS1_MOTOR_PULSE, LOW);
         digitalWrite(AXIS2_MOTOR_PULSE, LOW);
@@ -280,7 +277,7 @@ void sync_bot(void *arg){
         digitalWrite(AXIS5_MOTOR_PULSE, LOW);
 
         stepcounter ++;
-        rt_task_set_periodic(&sync_task, TM_NOW, speed_delay);
+        rt_task_set_periodic(&sync_task, TM_NOW, SYNC_DELAY);
     }
   
     //read state of switches
@@ -302,7 +299,7 @@ void sync_bot(void *arg){
         rt_task_wait_period(NULL);
         if (digitalRead(LIMIT1) == limit_1_state){
             digitalWrite(AXIS1_MOTOR_PULSE, HIGH);
-            rt_task_sleep(pulse_width);
+            rt_task_sleep(PULSE_WIDTH);
             digitalWrite(AXIS1_MOTOR_PULSE, LOW);
             axis_1_homed = 0;
         } else{
@@ -310,7 +307,7 @@ void sync_bot(void *arg){
         }
         if (digitalRead(LIMIT2) == limit_2_state){
             digitalWrite(AXIS2_MOTOR_PULSE, HIGH);
-            rt_task_sleep(pulse_width);
+            rt_task_sleep(PULSE_WIDTH);
             digitalWrite(AXIS2_MOTOR_PULSE, LOW);
             axis_2_homed = 0;
         } else {
@@ -318,7 +315,7 @@ void sync_bot(void *arg){
         }
         if (digitalRead(LIMIT3) == limit_3_state){
             digitalWrite(AXIS3_MOTOR_PULSE, HIGH);
-            rt_task_sleep(pulse_width);
+            rt_task_sleep(PULSE_WIDTH);
             digitalWrite(AXIS3_MOTOR_PULSE, LOW);
             axis_3_homed = 0;
         } else {
@@ -326,7 +323,7 @@ void sync_bot(void *arg){
         }
         if (digitalRead(LIMIT4) == limit_4_state){
             digitalWrite(AXIS4_MOTOR_PULSE, HIGH);
-            rt_task_sleep(pulse_width);
+            rt_task_sleep(PULSE_WIDTH);
             digitalWrite(AXIS4_MOTOR_PULSE, LOW);
             axis_4_homed = 0;
         } else {
@@ -334,7 +331,7 @@ void sync_bot(void *arg){
         }
         if (digitalRead(LIMIT5) == limit_5_state){
             digitalWrite(AXIS5_MOTOR_PULSE, HIGH);
-            rt_task_sleep(pulse_width);
+            rt_task_sleep(PULSE_WIDTH);
             digitalWrite(AXIS5_MOTOR_PULSE, LOW);
             axis_5_homed = 0;
         } else {
@@ -350,7 +347,7 @@ void sync_bot(void *arg){
                 homed = 1;
             }
         }
-        rt_task_set_periodic(&sync_task, TM_NOW, speed_delay);
+        rt_task_set_periodic(&sync_task, TM_NOW, SYNC_DELAY);
     }
     
     //read state of switches
