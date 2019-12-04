@@ -10,6 +10,10 @@
 #include <alchemy/task.h>
 #include <alchemy/timer.h>
 
+#include "lua-5.2.3/lua.h"
+#include "lua-5.2.3/lauxlib.h"
+#include "lua-5.2.3/lualib.h"
+
 /**
 
  +-----+-----+---------+------+---+---Pi 3B+-+---+------+---------+-----+-----+
@@ -197,7 +201,7 @@ void setUp(){
 
 }
 
-void sync_bot(void *arg){
+void sync_bot(){
     int homed = 0;
     int nearly_homed = 0;
 
@@ -378,8 +382,6 @@ void sync_bot(void *arg){
     _digitalRead(LIMIT4);
     _digitalRead(LIMIT5);
 
-    alarm(1);
-
 }
 
 
@@ -506,30 +508,54 @@ int move_to(int steps1, int steps2, int steps3, int steps4, int steps5){
     move_bot(steps_to_move_a1, steps_to_move_a2, steps_to_move_a3, steps_to_move_a4, steps_to_move_a5);
 }
 
-void program(){
-    move_to(0, 0, 0, 0, 10000);
-    move_to(0, 0, 0, 50000, 10000);
-    move_to(70000, -20000, 20000, 0, 0);
-    move_to(0, 0, 0, 0, 0);
+void program(char *script){
+    loadLua(script);
     alarm(1);
 }
 
-int run(){
+int run(char *script){
     rt_task_set_periodic(&sync_task, TM_NOW, BOT->delay);
     rt_task_create(&sync_task, "sync-task", 0, 99, 0);
-    rt_task_start(&sync_task, &program, NULL);
+    rt_task_start(&sync_task, &program, script);
     pause();
     rt_task_delete(&sync_task);
 }
 
-int home(){
-    rt_task_set_periodic(&sync_task, TM_NOW, 1000000);
-    rt_task_create(&sync_task, "sync-task", 0, 99, 0);
-    rt_task_start(&sync_task, &sync_bot, NULL);
-    pause();
-    rt_task_delete(&sync_task);
+
+int __home(lua_State *L){
+    sync_bot();
+}
+
+int __move_to(lua_State *L){
+    int axis_1 = lua_tonumber(L, 1);
+    int axis_2 = lua_tonumber(L, 2);
+    int axis_3 = lua_tonumber(L, 3);
+    int axis_4 = lua_tonumber(L, 4);
+    int axis_5 = lua_tonumber(L, 5);
+    move_to(axis_1, axis_2, axis_3, axis_4, axis_5);
     return 0;
 }
+
+void loadLua(char *script){
+
+    lua_State *L;
+
+    L = luaL_newstate();
+    luaL_openlibs(L); 
+    lua_register(L,"move_to",__move_to);
+    lua_register(L,"home",__home);
+
+    if (luaL_loadfile(L, script)){
+        printf("luaL_loadfile() failed scriptname: %s\n",script);   
+    }   
+
+    if (lua_pcall(L, 0, 0, 0)){
+        printf("lua_pcall() failed\n");  
+    }
+
+    lua_close(L);
+}
+
 
 int main(int argc, char* argv[])
 {
@@ -539,7 +565,10 @@ int main(int argc, char* argv[])
     mlockall(MCL_CURRENT|MCL_FUTURE);
     wiringPiSetup();
     setUp();
-    //home();
-    run();
+    char *script= "default.lua";
+    if(argc == 2){
+        script = argv[1];
+    }
+    run(script);
     return 0;
 }
