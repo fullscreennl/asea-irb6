@@ -71,6 +71,22 @@ int CCW = LOW;
 
 RT_TASK sync_task;
 
+typedef struct AseaBotState{
+	int steps_a1;
+	int steps_a2;
+	int steps_a3;
+	int steps_a4;
+	int steps_a5;
+	int delay;
+}BotState;
+
+BotState *BOT; // global state of the robot
+
+#define MOVE_MAX_DELAY 250000
+#define MOVE_MIN_DELAY 20000
+#define SPEED_DELTA (MOVE_MAX_DELAY - MOVE_MIN_DELAY) 
+#define START_SLOPE 20000
+#define INCREMENT (SPEED_DELTA / START_SLOPE)
 
 void catch_signal(int sig){
 }
@@ -97,6 +113,13 @@ int _digitalRead(int input){
 }
 
 void setUp(){
+
+	BOT = (BotState *) malloc(sizeof(BotState));
+	BOT->steps_a1 = 0;
+	BOT->steps_a2 = 0;
+	BOT->steps_a3 = 0;
+	BOT->steps_a4 = 0;
+	BOT->steps_a5 = 0;
 
     int dir_axis1 = HIGH; // CW
     int dir_axis2 = HIGH; // CW
@@ -370,26 +393,8 @@ int home(){
     return 0;
 }
 
-
-const int move_max_delay = 250000;
-int move_min_delay = 20000;
 int slope = 20000;
-int start_slope = 20000;
 int move_delay = 400000;
-int speed_delta = 0; 
-int increment = 0;
-
-int steps_to_move_a1 = 0;
-int steps_to_move_a2 = 0;
-int steps_to_move_a3 = 0;
-int steps_to_move_a4 = 0;
-int steps_to_move_a5 = 0;
-
-int steps_a1 = 0;
-int steps_a2 = 0;
-int steps_a3 = 0;
-int steps_a4 = 0;
-int steps_a5 = 0;
 
 int speed(int total_steps, int steps_left){
     int state = 1; // 1 = easing in, 2 = max speed, 3 = easing out
@@ -402,14 +407,14 @@ int speed(int total_steps, int steps_left){
     }
     //printf("state : %i delay : %i steps left: %i \n", state, move_delay, steps_left);
     if (state == 1){
-        move_delay -= increment;
-        if(move_delay < move_min_delay){
-           move_delay = move_min_delay;
+        move_delay -= INCREMENT;
+        if(move_delay < MOVE_MIN_DELAY){
+           move_delay = MOVE_MIN_DELAY;
         }    
     }else if(state == 3){
-        move_delay += increment;
-        if(move_delay >  move_max_delay){
-           move_delay = move_max_delay;
+        move_delay += INCREMENT;
+        if(move_delay > MOVE_MAX_DELAY){
+           move_delay = MOVE_MAX_DELAY;
         }    
     }
 }
@@ -423,20 +428,14 @@ int max(int a, int b, int c, int d, int e){
     return l;
 }
 
-void move_bot(){
-    speed_delta = move_max_delay - move_min_delay; 
-    increment = speed_delta / start_slope;
-    int numsteps1 = steps_to_move_a1;
-    int numsteps2 = steps_to_move_a2;
-    int numsteps3 = steps_to_move_a3;
-    int numsteps4 = steps_to_move_a4;
-    int numsteps5 = steps_to_move_a5;
+void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int numsteps5){
+
     int done = 0;
     int longest = max(numsteps1, numsteps2, numsteps3, numsteps4, numsteps5);
-    if(longest < (start_slope*2)){
+    if(longest < (START_SLOPE*2)){
         slope = longest / 2; 
     }else{
-        slope = start_slope;
+        slope = START_SLOPE;
     }
     printf("slope %i \n", slope);
     int c1 = 0, c2 = 0, c3 = 0, c4 = 0, c5 = 0;
@@ -483,42 +482,42 @@ void move_bot(){
 
 int moveTo(int steps1, int steps2, int steps3, int steps4, int steps5){
     printf("move to %i %i %i %i %i\n", steps1, steps2, steps3, steps4, steps5);
-    steps_to_move_a1 = abs(steps1 - steps_a1);
-    steps_to_move_a2 = abs(steps2 - steps_a2);
-    steps_to_move_a3 = abs(steps3 - steps_a3);
-    steps_to_move_a4 = abs(steps4 - steps_a4);
-    steps_to_move_a5 = abs(steps5 - steps_a5);
-    if(steps1 < steps_a1){
+    int steps_to_move_a1 = abs(steps1 - BOT->steps_a1);
+    int steps_to_move_a2 = abs(steps2 - BOT->steps_a2);
+    int steps_to_move_a3 = abs(steps3 - BOT->steps_a3);
+    int steps_to_move_a4 = abs(steps4 - BOT->steps_a4);
+    int steps_to_move_a5 = abs(steps5 - BOT->steps_a5);
+    if(steps1 < BOT->steps_a1){
         digitalWrite(AXIS1_MOTOR_DIR, CCW);
     }else{
         digitalWrite(AXIS1_MOTOR_DIR, CW);
     }
-    if(steps2 < steps_a2){
+    if(steps2 < BOT->steps_a2){
         digitalWrite(AXIS2_MOTOR_DIR, CCW);
     }else{
         digitalWrite(AXIS2_MOTOR_DIR, CW);
     }
-    if(steps3 < steps_a3){
+    if(steps3 < BOT->steps_a3){
         digitalWrite(AXIS3_MOTOR_DIR, CCW);
     }else{
         digitalWrite(AXIS3_MOTOR_DIR, CW);
     }
-    if(steps4 < steps_a4){
+    if(steps4 < BOT->steps_a4){
         digitalWrite(AXIS4_MOTOR_DIR, CCW);
     }else{
         digitalWrite(AXIS4_MOTOR_DIR, CW);
     }
-    if(steps5 < steps_a5){
+    if(steps5 < BOT->steps_a5){
         digitalWrite(AXIS5_MOTOR_DIR, CCW);
     }else{
         digitalWrite(AXIS5_MOTOR_DIR, CW);
     }
-    steps_a1 = steps1;
-    steps_a2 = steps2;
-    steps_a3 = steps3;
-    steps_a4 = steps4;
-    steps_a5 = steps5;
-    move_bot();
+    BOT->steps_a1 = steps1;
+    BOT->steps_a2 = steps2;
+    BOT->steps_a3 = steps3;
+    BOT->steps_a4 = steps4;
+    BOT->steps_a5 = steps5;
+    move_bot(steps_to_move_a1, steps_to_move_a2, steps_to_move_a3, steps_to_move_a4, steps_to_move_a5);
 }
 
 void program(){
@@ -529,7 +528,7 @@ void program(){
     alarm(1);
 }
 
-int runProgram(){
+int run(){
     rt_task_set_periodic(&sync_task, TM_NOW, move_delay);
     rt_task_create(&sync_task, "sync-task", 0, 99, 0);
     rt_task_start(&sync_task, &program, NULL);
@@ -545,7 +544,7 @@ int main(int argc, char* argv[])
     mlockall(MCL_CURRENT|MCL_FUTURE);
     wiringPiSetup();
     setUp();
-    //home();
-    runProgram();
+    home();
+    run();
     return 0;
 }
