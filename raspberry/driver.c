@@ -63,11 +63,17 @@
 
 #define SYNC_OVERSHOOT_STEPS 10000
 
-#define SYNC_DELAY 20000
+#define SYNC_DELAY 200000
 #define PULSE_WIDTH 2000
 
-int CW = HIGH;
-int CCW = LOW;
+#define CW HIGH
+#define CCW LOW
+
+#define MOVE_MAX_DELAY 250000
+#define MOVE_MIN_DELAY 20000
+#define SPEED_DELTA (MOVE_MAX_DELAY - MOVE_MIN_DELAY) 
+#define START_SLOPE 20000
+#define INCREMENT (SPEED_DELTA / START_SLOPE)
 
 RT_TASK sync_task;
 
@@ -81,12 +87,6 @@ typedef struct AseaBotState{
 }BotState;
 
 BotState *BOT; // global state of the robot
-
-#define MOVE_MAX_DELAY 250000
-#define MOVE_MIN_DELAY 20000
-#define SPEED_DELTA (MOVE_MAX_DELAY - MOVE_MIN_DELAY) 
-#define START_SLOPE 20000
-#define INCREMENT (SPEED_DELTA / START_SLOPE)
 
 void catch_signal(int sig){
 }
@@ -120,6 +120,7 @@ void setUp(){
 	BOT->steps_a3 = 0;
 	BOT->steps_a4 = 0;
 	BOT->steps_a5 = 0;
+    BOT->delay = MOVE_MAX_DELAY;
 
     int dir_axis1 = HIGH; // CW
     int dir_axis2 = HIGH; // CW
@@ -384,19 +385,8 @@ void sync_bot(void *arg){
 
 }
 
-int home(){
-    rt_task_set_periodic(&sync_task, TM_NOW, 1000000);
-    rt_task_create(&sync_task, "sync-task", 0, 99, 0);
-    rt_task_start(&sync_task, &sync_bot, NULL);
-    pause();
-    rt_task_delete(&sync_task);
-    return 0;
-}
 
-int slope = 20000;
-int move_delay = 400000;
-
-int speed(int total_steps, int steps_left){
+int speed(int total_steps, int steps_left, int slope){
     int state = 1; // 1 = easing in, 2 = max speed, 3 = easing out
     if (total_steps - steps_left < slope){
         state = 1; 
@@ -405,16 +395,15 @@ int speed(int total_steps, int steps_left){
     }else{
         state = 2;
     }
-    //printf("state : %i delay : %i steps left: %i \n", state, move_delay, steps_left);
     if (state == 1){
-        move_delay -= INCREMENT;
-        if(move_delay < MOVE_MIN_DELAY){
-           move_delay = MOVE_MIN_DELAY;
+        BOT->delay -= INCREMENT;
+        if(BOT->delay < MOVE_MIN_DELAY){
+           BOT->delay = MOVE_MIN_DELAY;
         }    
     }else if(state == 3){
-        move_delay += INCREMENT;
-        if(move_delay > MOVE_MAX_DELAY){
-           move_delay = MOVE_MAX_DELAY;
+        BOT->delay += INCREMENT;
+        if(BOT->delay > MOVE_MAX_DELAY){
+           BOT->delay = MOVE_MAX_DELAY;
         }    
     }
 }
@@ -429,7 +418,7 @@ int max(int a, int b, int c, int d, int e){
 }
 
 void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int numsteps5){
-
+    int slope;
     int done = 0;
     int longest = max(numsteps1, numsteps2, numsteps3, numsteps4, numsteps5);
     if(longest < (START_SLOPE*2)){
@@ -447,7 +436,7 @@ void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int nu
     double f5 = (float)longest/numsteps5;
     while(counter < longest){
         rt_task_wait_period(NULL);
-        speed(longest, longest - counter);
+        speed(longest, longest - counter, slope);
         if(fmod(counter, f1) < 1.0  && c1 < numsteps1){
             digitalWrite(AXIS1_MOTOR_PULSE, HIGH);
             c1 ++;
@@ -474,13 +463,13 @@ void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int nu
         digitalWrite(AXIS3_MOTOR_PULSE, LOW);
         digitalWrite(AXIS4_MOTOR_PULSE, LOW);
         digitalWrite(AXIS5_MOTOR_PULSE, LOW);
-        rt_task_set_periodic(&sync_task, TM_NOW, move_delay);
+        rt_task_set_periodic(&sync_task, TM_NOW, BOT->delay);
         counter ++;
     }
     printf("loop done steps taken %i %i %i %i %i\n", c1, c2, c3, c4, c5);
 }
 
-int moveTo(int steps1, int steps2, int steps3, int steps4, int steps5){
+int move_to(int steps1, int steps2, int steps3, int steps4, int steps5){
     printf("move to %i %i %i %i %i\n", steps1, steps2, steps3, steps4, steps5);
     int steps_to_move_a1 = abs(steps1 - BOT->steps_a1);
     int steps_to_move_a2 = abs(steps2 - BOT->steps_a2);
@@ -521,19 +510,28 @@ int moveTo(int steps1, int steps2, int steps3, int steps4, int steps5){
 }
 
 void program(){
-    moveTo(0, 0, 0, 0, 10000);
-    moveTo(0, 0, 0, 50000, 10000);
-    moveTo(70000, -20000, 20000, 0, 0);
-    moveTo(0, 0, 0, 0, 0);
+    move_to(0, 0, 0, 0, 10000);
+    move_to(0, 0, 0, 50000, 10000);
+    move_to(70000, -20000, 20000, 0, 0);
+    move_to(0, 0, 0, 0, 0);
     alarm(1);
 }
 
 int run(){
-    rt_task_set_periodic(&sync_task, TM_NOW, move_delay);
+    rt_task_set_periodic(&sync_task, TM_NOW, BOT->delay);
     rt_task_create(&sync_task, "sync-task", 0, 99, 0);
     rt_task_start(&sync_task, &program, NULL);
     pause();
     rt_task_delete(&sync_task);
+}
+
+int home(){
+    rt_task_set_periodic(&sync_task, TM_NOW, 1000000);
+    rt_task_create(&sync_task, "sync-task", 0, 99, 0);
+    rt_task_start(&sync_task, &sync_bot, NULL);
+    pause();
+    rt_task_delete(&sync_task);
+    return 0;
 }
 
 int main(int argc, char* argv[])
@@ -544,7 +542,7 @@ int main(int argc, char* argv[])
     mlockall(MCL_CURRENT|MCL_FUTURE);
     wiringPiSetup();
     setUp();
-    home();
+    //home();
     run();
     return 0;
 }
