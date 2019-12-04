@@ -63,7 +63,7 @@
 
 #define SYNC_OVERSHOOT_STEPS 10000
 
-#define SYNC_DELAY 200000
+#define SYNC_DELAY 800000
 #define PULSE_WIDTH 2000
 
 #define CW HIGH
@@ -78,12 +78,12 @@
 RT_TASK sync_task;
 
 typedef struct AseaBotState{
-	int steps_a1;
-	int steps_a2;
-	int steps_a3;
-	int steps_a4;
-	int steps_a5;
-	int delay;
+    int steps_a1;
+    int steps_a2;
+    int steps_a3;
+    int steps_a4;
+    int steps_a5;
+    int delay;
 }BotState;
 
 BotState *BOT; // global state of the robot
@@ -102,24 +102,25 @@ int _digitalRead(int input){
             ls ++;
         }
         if(hs > 100){
-            printf("h: %i l: %i\n", hs, ls);
+            // printf("h: %i l: %i\n", hs, ls);
             return HIGH;
         }
         if(ls > 100){
-            printf("h: %i l: %i\n", hs, ls);
+            // printf("h: %i l: %i\n", hs, ls);
             return LOW;
         }
     }
 }
 
+
 void setUp(){
 
-	BOT = (BotState *) malloc(sizeof(BotState));
-	BOT->steps_a1 = 0;
-	BOT->steps_a2 = 0;
-	BOT->steps_a3 = 0;
-	BOT->steps_a4 = 0;
-	BOT->steps_a5 = 0;
+    BOT = (BotState *) malloc(sizeof(BotState));
+    BOT->steps_a1 = 0;
+    BOT->steps_a2 = 0;
+    BOT->steps_a3 = 0;
+    BOT->steps_a4 = 0;
+    BOT->steps_a5 = 0;
     BOT->delay = MOVE_MAX_DELAY;
 
     int dir_axis1 = HIGH; // CW
@@ -263,13 +264,11 @@ void sync_bot(void *arg){
         } else {
             axis_5_homed = 1;
         }
-        //printf(" %i %i %i %i %i \n", axis_1_homed, axis_2_homed, axis_3_homed, axis_4_homed, axis_5_homed);
         if (axis_1_homed && axis_2_homed && axis_3_homed && axis_4_homed && axis_5_homed) {
-        //if (axis_4_homed && axis_5_homed) {
             nearly_homed_count ++;
             if(nearly_homed_count > 100){
-                printf(" %i %i %i %i %i \n", axis_1_homed, axis_2_homed, axis_3_homed, axis_4_homed, axis_5_homed);
-                printf("nearly homed!\n");
+                // printf(" %i %i %i %i %i \n", axis_1_homed, axis_2_homed, axis_3_homed, axis_4_homed, axis_5_homed);
+                // printf("nearly homed!\n");
                 nearly_homed = 1;
             }
         }
@@ -361,13 +360,11 @@ void sync_bot(void *arg){
         } else {
             axis_5_homed = 1;
         }
-        //printf(" %i %i %i %i %i \n", axis_1_homed, axis_2_homed, axis_3_homed, axis_4_homed, axis_5_homed);
         if (axis_1_homed && axis_2_homed && axis_3_homed && axis_4_homed && axis_5_homed) {
-        //if (axis_4_homed && axis_5_homed) {
             really_homed_count ++;
             if(really_homed_count > 100){
-                printf(" %i %i %i %i %i \n", axis_1_homed, axis_2_homed, axis_3_homed, axis_4_homed, axis_5_homed);
-                printf("really homed!\n");
+                // printf(" %i %i %i %i %i \n", axis_1_homed, axis_2_homed, axis_3_homed, axis_4_homed, axis_5_homed);
+                printf("ASEA ROBOT AT YOUR SERVICE!\n");
                 homed = 1;
             }
         }
@@ -426,7 +423,7 @@ void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int nu
     }else{
         slope = START_SLOPE;
     }
-    printf("slope %i \n", slope);
+    // printf("slope %i \n", slope);
     int c1 = 0, c2 = 0, c3 = 0, c4 = 0, c5 = 0;
     int counter = 0;
     double f1 = (float)longest/numsteps1;
@@ -466,11 +463,11 @@ void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int nu
         rt_task_set_periodic(&sync_task, TM_NOW, BOT->delay);
         counter ++;
     }
-    printf("loop done steps taken %i %i %i %i %i\n", c1, c2, c3, c4, c5);
+    // printf("loop done steps taken %i %i %i %i %i\n", c1, c2, c3, c4, c5);
 }
 
 int move_to(int steps1, int steps2, int steps3, int steps4, int steps5){
-    printf("move to %i %i %i %i %i\n", steps1, steps2, steps3, steps4, steps5);
+    // printf("move to %i %i %i %i %i\n", steps1, steps2, steps3, steps4, steps5);
     int steps_to_move_a1 = abs(steps1 - BOT->steps_a1);
     int steps_to_move_a2 = abs(steps2 - BOT->steps_a2);
     int steps_to_move_a3 = abs(steps3 - BOT->steps_a3);
