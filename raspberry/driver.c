@@ -92,6 +92,17 @@ typedef struct AseaBotState{
 
 BotState *BOT; // global state of the robot
 
+typedef struct BotSpeedState{
+    int max_delay;
+    int min_delay;
+    int slope;
+    int increment;
+    int speed_delta;
+}SpeedState;
+
+SpeedState *SPEED; // global speed state of the robot
+
+
 void catch_signal(int sig){
 }
 
@@ -118,6 +129,13 @@ int _digitalRead(int input){
 
 
 void setUp(){
+    
+    SPEED = (SpeedState*) malloc(sizeof(SpeedState));
+    SPEED->max_delay = MOVE_MAX_DELAY;
+    SPEED->min_delay = MOVE_MIN_DELAY;
+    SPEED->slope = START_SLOPE;
+    SPEED->speed_delta = SPEED_DELTA;
+    SPEED->increment = INCREMENT;
 
     BOT = (BotState *) malloc(sizeof(BotState));
     BOT->steps_a1 = 0;
@@ -125,7 +143,7 @@ void setUp(){
     BOT->steps_a3 = 0;
     BOT->steps_a4 = 0;
     BOT->steps_a5 = 0;
-    BOT->delay = MOVE_MAX_DELAY;
+    BOT->delay = SPEED->max_delay;
 
     int dir_axis1 = HIGH; // CW
     int dir_axis2 = HIGH; // CW
@@ -388,21 +406,24 @@ void sync_bot(){
 int speed(int total_steps, int steps_left, int slope){
     int state = 1; // 1 = easing in, 2 = max speed, 3 = easing out
     if (total_steps - steps_left < slope){
-        state = 1; 
+        state = 1;
     }else if(steps_left < slope){
         state = 3;
     }else{
         state = 2;
     }
+
+    int speed_inc = SPEED->increment;
+
     if (state == 1){
-        BOT->delay -= INCREMENT;
-        if(BOT->delay < MOVE_MIN_DELAY){
-           BOT->delay = MOVE_MIN_DELAY;
+        BOT->delay -= speed_inc;
+        if(BOT->delay < SPEED->min_delay){
+           BOT->delay = SPEED->min_delay;
         }    
     }else if(state == 3){
-        BOT->delay += INCREMENT;
-        if(BOT->delay > MOVE_MAX_DELAY){
-           BOT->delay = MOVE_MAX_DELAY;
+        BOT->delay += speed_inc;
+        if(BOT->delay > SPEED->max_delay){
+           BOT->delay = SPEED->max_delay;
         }    
     }
 }
@@ -420,10 +441,10 @@ void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int nu
     int slope;
     int done = 0;
     int longest = max(numsteps1, numsteps2, numsteps3, numsteps4, numsteps5);
-    if(longest < (START_SLOPE*2)){
+    if(longest < (SPEED->slope*2)){
         slope = longest / 2; 
     }else{
-        slope = START_SLOPE;
+        slope = SPEED->slope;
     }
     // printf("slope %i \n", slope);
     int c1 = 0, c2 = 0, c3 = 0, c4 = 0, c5 = 0;
@@ -536,6 +557,29 @@ int __move_to(lua_State *L){
     return 0;
 }
 
+int __set_speed(lua_State *L){
+    int slope = lua_tonumber(L, 1);
+    int min_delay = lua_tonumber(L, 2);
+    int max_delay = lua_tonumber(L, 3);
+    int speed_delta = max_delay - min_delay;
+    int increment = speed_delta / slope;
+    SPEED->max_delay = max_delay;
+    SPEED->min_delay = min_delay;
+    SPEED->slope = slope;
+    SPEED->speed_delta = speed_delta;
+    SPEED->increment = increment;
+    return 0;
+}
+
+int __set_default_speed(lua_State *L){
+    SPEED->max_delay = MOVE_MAX_DELAY;
+    SPEED->min_delay = MOVE_MIN_DELAY;
+    SPEED->slope = START_SLOPE;
+    SPEED->speed_delta = SPEED_DELTA;
+    SPEED->increment = INCREMENT;
+    return 0;
+}
+
 void loadLua(char *script){
 
     lua_State *L;
@@ -544,6 +588,8 @@ void loadLua(char *script){
     luaL_openlibs(L); 
     lua_register(L,"move_to",__move_to);
     lua_register(L,"home",__home);
+    lua_register(L,"set_speed",__set_speed);
+    lua_register(L,"set_default_speed",__set_default_speed);
 
     if (luaL_loadfile(L, script)){
         printf("luaL_loadfile() failed scriptname: %s\n",script);   
