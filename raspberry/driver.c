@@ -93,11 +93,15 @@ typedef struct AseaBotState{
 BotState *BOT; // global state of the robot
 
 typedef struct BotSpeedState{
-    int max_delay;
-    int min_delay;
-    int slope;
-    int increment;
-    int speed_delta;
+    float max_delay;
+    float min_delay;
+    float slope;
+    float increment;
+    float decrement;
+    float speed_delta;
+    float half_slope;
+    float f;
+    float a;
 }SpeedState;
 
 SpeedState *SPEED; // global speed state of the robot
@@ -135,7 +139,11 @@ void setUp(){
     SPEED->min_delay = MOVE_MIN_DELAY;
     SPEED->slope = START_SLOPE;
     SPEED->speed_delta = SPEED_DELTA;
-    SPEED->increment = INCREMENT;
+    SPEED->increment = 0;
+    SPEED->decrement = 0;
+    SPEED->half_slope = SPEED->slope / 2.0;
+    SPEED->f = SPEED->speed_delta / SPEED->slope;
+    SPEED->a = SPEED->f / SPEED->half_slope;
 
     BOT = (BotState *) malloc(sizeof(BotState));
     BOT->steps_a1 = 0;
@@ -413,15 +421,25 @@ int speed(int total_steps, int steps_left, int slope){
         state = 2;
     }
 
-    int speed_inc = SPEED->increment;
+    int step = total_steps - steps_left;
 
     if (state == 1){
-        BOT->delay -= speed_inc;
+        if(step < SPEED->half_slope){
+            SPEED->increment += SPEED->a;
+        }else{
+            SPEED->increment -= SPEED->a;
+        }
+        BOT->delay -= SPEED->increment;
         if(BOT->delay < SPEED->min_delay){
            BOT->delay = SPEED->min_delay;
         }    
     }else if(state == 3){
-        BOT->delay += speed_inc;
+        if(step > total_steps-SPEED->half_slope){
+            SPEED->decrement += SPEED->a;
+        }else{
+            SPEED->decrement -= SPEED->a;
+        }
+        BOT->delay += SPEED->decrement;
         if(BOT->delay > SPEED->max_delay){
            BOT->delay = SPEED->max_delay;
         }    
@@ -562,12 +580,16 @@ int __set_speed(lua_State *L){
     int min_delay = lua_tonumber(L, 2);
     int max_delay = lua_tonumber(L, 3);
     int speed_delta = max_delay - min_delay;
-    int increment = speed_delta / slope;
     SPEED->max_delay = max_delay;
     SPEED->min_delay = min_delay;
     SPEED->slope = slope;
     SPEED->speed_delta = speed_delta;
-    SPEED->increment = increment;
+    SPEED->increment = 0.0;
+    SPEED->decrement = 0.0;
+    SPEED->half_slope = SPEED->slope / 2.0;
+    SPEED->f = SPEED->speed_delta / SPEED->slope;
+    SPEED->a = SPEED->f*2.0 / SPEED->half_slope;
+    printf("speed settings f %f a %a :\n",SPEED->f, SPEED->a);
     return 0;
 }
 
@@ -576,7 +598,11 @@ int __set_default_speed(lua_State *L){
     SPEED->min_delay = MOVE_MIN_DELAY;
     SPEED->slope = START_SLOPE;
     SPEED->speed_delta = SPEED_DELTA;
-    SPEED->increment = INCREMENT;
+    SPEED->increment = 0;
+    SPEED->decrement = 0;
+    SPEED->half_slope = SPEED->slope / 2.0;
+    SPEED->f = SPEED->speed_delta / SPEED->slope;
+    SPEED->a = SPEED->f / SPEED->half_slope;
     return 0;
 }
 

@@ -6,7 +6,7 @@
 
 -- home()
 
-set_speed(5000, 1000, 300000) -- slope min max
+set_speed(20000, 20000, 300000) -- slope min max
 --[[
 move_to(0,0,0,-10000,0)
 move_to(0,0,0,140000,-140000)
