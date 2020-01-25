@@ -87,7 +87,7 @@ typedef struct AseaBotState{
     int steps_a3;
     int steps_a4;
     int steps_a5;
-    int delay;
+    float delay;
 }BotState;
 
 BotState *BOT; // global state of the robot
@@ -410,12 +410,12 @@ void sync_bot(){
 
 }
 
-
-int speed(int total_steps, int steps_left, int slope){
+int pstate = 0;
+int speed(int total_steps, int steps_left){
     int state = 1; // 1 = easing in, 2 = max speed, 3 = easing out
-    if (total_steps - steps_left < slope){
+    if (total_steps - steps_left < SPEED->slope){
         state = 1;
-    }else if(steps_left < slope){
+    }else if(steps_left < SPEED->slope){
         state = 3;
     }else{
         state = 2;
@@ -431,19 +431,23 @@ int speed(int total_steps, int steps_left, int slope){
         }
         BOT->delay -= SPEED->increment;
         if(BOT->delay < SPEED->min_delay){
-           BOT->delay = SPEED->min_delay;
+           //BOT->delay = SPEED->min_delay;
         }    
     }else if(state == 3){
-        if(step > total_steps-SPEED->half_slope){
+        if(step < total_steps-SPEED->half_slope){
             SPEED->decrement += SPEED->a;
         }else{
             SPEED->decrement -= SPEED->a;
         }
         BOT->delay += SPEED->decrement;
         if(BOT->delay > SPEED->max_delay){
-           BOT->delay = SPEED->max_delay;
+           //BOT->delay = SPEED->max_delay;
         }    
     }
+    //if(step%100 == 0){
+        //printf("delay %f state %i step %i \n", BOT->delay, state, step);
+    //}
+    pstate = state;
 }
 
 int max(int a, int b, int c, int d, int e){
@@ -456,13 +460,10 @@ int max(int a, int b, int c, int d, int e){
 }
 
 void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int numsteps5){
-    int slope;
     int done = 0;
     int longest = max(numsteps1, numsteps2, numsteps3, numsteps4, numsteps5);
     if(longest < (SPEED->slope*2)){
-        slope = longest / 2; 
-    }else{
-        slope = SPEED->slope;
+        SPEED->slope = longest / 2.0; 
     }
     // printf("slope %i \n", slope);
     int c1 = 0, c2 = 0, c3 = 0, c4 = 0, c5 = 0;
@@ -474,7 +475,7 @@ void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int nu
     double f5 = (float)longest/numsteps5;
     while(counter < longest){
         rt_task_wait_period(NULL);
-        speed(longest, longest - counter, slope);
+        speed(longest, longest - counter);
         if(fmod(counter, f1) < 1.0  && c1 < numsteps1){
             digitalWrite(AXIS1_MOTOR_PULSE, HIGH);
             c1 ++;
@@ -566,6 +567,8 @@ int __home(lua_State *L){
 }
 
 int __move_to(lua_State *L){
+    SPEED->increment = 0;
+    SPEED->decrement = 0;
     int axis_1 = lua_tonumber(L, 1);
     int axis_2 = lua_tonumber(L, 2);
     int axis_3 = lua_tonumber(L, 3);
@@ -576,10 +579,10 @@ int __move_to(lua_State *L){
 }
 
 int __set_speed(lua_State *L){
-    int slope = lua_tonumber(L, 1);
-    int min_delay = lua_tonumber(L, 2);
-    int max_delay = lua_tonumber(L, 3);
-    int speed_delta = max_delay - min_delay;
+    float slope = lua_tonumber(L, 1);
+    float min_delay = lua_tonumber(L, 2);
+    float max_delay = lua_tonumber(L, 3);
+    float speed_delta = max_delay - min_delay;
     SPEED->max_delay = max_delay;
     SPEED->min_delay = min_delay;
     SPEED->slope = slope;
@@ -589,7 +592,7 @@ int __set_speed(lua_State *L){
     SPEED->half_slope = SPEED->slope / 2.0;
     SPEED->f = SPEED->speed_delta / SPEED->slope;
     SPEED->a = SPEED->f*2.0 / SPEED->half_slope;
-    printf("speed settings f %f a %a :\n",SPEED->f, SPEED->a);
+    printf("speed settings f %f a %f :\n",SPEED->f, SPEED->a);
     return 0;
 }
 
