@@ -8,6 +8,8 @@
 
 set_speed(3000, 13000*3, 300000*3) -- slope min max
 move_to(0,0,0,28000,-28000)
+--rect = get_face_rect()
+-- print(rect)
 move_to(0,0,0,0,0)
 move_to(0,0,0,2000,0)
 move_to(0,0,0,0,0)

@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <signal.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/mman.h>
 #include <stdlib.h>
@@ -82,7 +83,7 @@
 #define INCREMENT (SPEED_DELTA / START_SLOPE)
 
 int uart0_filestream = -1;
-void runReadLoop();
+const char * runReadLoop();
 int looping = 1;
 
 RT_TASK sync_task;
@@ -150,7 +151,7 @@ int setupSerial(){
 	//											immediately with a failure status if the output can't be written immediately.
 	//
 	//	O_NOCTTY - When set and path identifies a terminal device, open() shall not cause the terminal device to become the controlling terminal for the process.
-	uart0_filestream = open("/dev/ttyAMA0", O_RDWR | O_NOCTTY | O_NDELAY);		//Open in non blocking read/write mode
+	uart0_filestream = open("/dev/ttyS0", O_RDWR | O_NOCTTY | O_NDELAY);		//Open in non blocking read/write mode
 	if (uart0_filestream == -1)
 	{
 		//ERROR - CAN'T OPEN SERIAL PORT
@@ -179,11 +180,12 @@ int setupSerial(){
     //runReadLoop();
 }
 
-void runReadLoop() {
+const char * runReadLoop(char * buf) {
 	tcflush(uart0_filestream,TCIFLUSH);
 	looping = 1;
 	int incomplete = 1;
 	int incomingChars  = 0;
+    const char rect[19] = ""; 
 	while(looping || incomplete){
 		//----- CHECK FOR ANY RX BYTES -----
 		if (uart0_filestream != -1)
@@ -204,10 +206,13 @@ void runReadLoop() {
 				incomingChars += rx_length;
 				//Bytes received
 				rx_buffer[rx_length] = '\0';
-				printf("%i bytes read : %s\n", rx_length, rx_buffer);
+				//printf("%i bytes read : %s\n", rx_length, rx_buffer);
+                strcat(rect, rx_buffer);
 				looping = 0;
 				if (incomingChars >=19) {
 				    incomplete = 0;
+                    strncpy(buf, rect, 19);
+                    return buf;
 				}
 			}
 		}else{
@@ -215,6 +220,7 @@ void runReadLoop() {
 			incomplete = 0;
         }
 	}
+    printf("----------------\n");
 }	
 
 void setUp(){
@@ -653,8 +659,15 @@ int __home(lua_State *L){
     sync_bot();
 }
 
+int __read_face_rect(lua_State *L){
+    char rect[20];
+    memset(rect,0,20);
+    runReadLoop(rect);
+    lua_pushstring(L, rect);
+    return 1;
+}
+
 int __move_to(lua_State *L){
-    //runReadLoop();
     SPEED->increment = 0;
     SPEED->decrement = 0;
     int axis_1 = lua_tonumber(L, 1);
@@ -708,6 +721,7 @@ void loadLua(char *script){
     lua_register(L,"move_to",__move_to);
     lua_register(L,"home",__home);
     lua_register(L,"set_speed",__set_speed);
+    lua_register(L,"get_face_rect",__read_face_rect);
     lua_register(L,"set_default_speed",__set_default_speed);
 
     if (luaL_loadfile(L, script)){
