@@ -4,6 +4,8 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <stdlib.h>
+#include <fcntl.h> //Used for UART
+#include <termios.h>	
 
 #include <wiringPi.h>
 #include <boilerplate/ancillaries.h>
@@ -65,9 +67,9 @@
 #define LIMIT4 23              // io13
 #define LIMIT5 25              // io26
 
-#define SYNC_OVERSHOOT_STEPS 10000
+#define SYNC_OVERSHOOT_STEPS 2000
 
-#define SYNC_DELAY 800000
+#define SYNC_DELAY 4000000
 #define PULSE_WIDTH 2000
 
 #define CW HIGH
@@ -79,6 +81,10 @@
 #define START_SLOPE 45000
 #define INCREMENT (SPEED_DELTA / START_SLOPE)
 
+int uart0_filestream = -1;
+void runReadLoop();
+int looping = 1;
+
 RT_TASK sync_task;
 
 typedef struct AseaBotState{
@@ -87,17 +93,21 @@ typedef struct AseaBotState{
     int steps_a3;
     int steps_a4;
     int steps_a5;
-    int delay;
+    float delay;
 }BotState;
 
 BotState *BOT; // global state of the robot
 
 typedef struct BotSpeedState{
-    int max_delay;
-    int min_delay;
-    int slope;
-    int increment;
-    int speed_delta;
+    float max_delay;
+    float min_delay;
+    float slope;
+    float increment;
+    float decrement;
+    float speed_delta;
+    float half_slope;
+    float f;
+    float a;
 }SpeedState;
 
 SpeedState *SPEED; // global speed state of the robot
@@ -127,6 +137,85 @@ int _digitalRead(int input){
     }
 }
 
+int setupSerial(){
+	//OPEN THE UART
+	//The flags (defined in fcntl.h):
+	//	Access modes (use 1 of these):
+	//		O_RDONLY - Open for reading only.
+	//		O_RDWR - Open for reading and writing.
+	//		O_WRONLY - Open for writing only.
+	//
+	//	O_NDELAY / O_NONBLOCK (same function) - Enables nonblocking mode. When set read requests on the file can return immediately with a failure status
+	//											if there is no input immediately available (instead of blocking). Likewise, write requests can also return
+	//											immediately with a failure status if the output can't be written immediately.
+	//
+	//	O_NOCTTY - When set and path identifies a terminal device, open() shall not cause the terminal device to become the controlling terminal for the process.
+	uart0_filestream = open("/dev/ttyAMA0", O_RDWR | O_NOCTTY | O_NDELAY);		//Open in non blocking read/write mode
+	if (uart0_filestream == -1)
+	{
+		//ERROR - CAN'T OPEN SERIAL PORT
+		printf("Error - Unable to open UART.  Ensure it is not in use by another application\n");
+	}	
+
+	//CONFIGURE THE UART
+	//The flags (defined in /usr/include/termios.h - see http://pubs.opengroup.org/onlinepubs/007908799/xsh/termios.h.html):
+	//	Baud rate:- B1200, B2400, B4800, B9600, B19200, B38400, B57600, B115200, B230400, B460800,
+    //  B500000, B576000, B921600, B1000000, B1152000, B1500000, B2000000, B2500000, B3000000, B3500000, B4000000
+	//	CSIZE:- CS5, CS6, CS7, CS8
+	//	CLOCAL - Ignore modem status lines
+	//	CREAD - Enable receiver
+	//	IGNPAR = Ignore characters with parity errors
+	//	ICRNL - Map CR to NL on input (Use for ASCII comms where you want to auto correct end of line characters - don't use for bianry comms!)
+	//	PARENB - Parity enable
+	//	PARODD - Odd parity (else even)
+	struct termios options;
+	tcgetattr(uart0_filestream, &options);
+	options.c_cflag = B1152000 | CS8 | CLOCAL | CREAD;		//<Set baud rate
+	options.c_iflag = IGNPAR;
+	options.c_oflag = 0;
+	options.c_lflag = 0;
+	tcflush(uart0_filestream, TCIFLUSH);
+	tcsetattr(uart0_filestream, TCSANOW, &options);
+    //runReadLoop();
+}
+
+void runReadLoop() {
+	tcflush(uart0_filestream,TCIFLUSH);
+	looping = 1;
+	int incomplete = 1;
+	int incomingChars  = 0;
+	while(looping || incomplete){
+		//----- CHECK FOR ANY RX BYTES -----
+		if (uart0_filestream != -1)
+		{
+			// Read up to 255 characters from the port if they are there
+			unsigned char rx_buffer[256];
+			int rx_length = read(uart0_filestream, (void*)rx_buffer, 255);		//Filestream, buffer to store in, number of bytes to read (max)
+			if (rx_length < 0)
+			{
+				//An error occured (will occur if there are no bytes)
+			}
+			else if (rx_length == 0)
+			{
+				//No data waiting
+			}
+			else
+			{
+				incomingChars += rx_length;
+				//Bytes received
+				rx_buffer[rx_length] = '\0';
+				printf("%i bytes read : %s\n", rx_length, rx_buffer);
+				looping = 0;
+				if (incomingChars >=19) {
+				    incomplete = 0;
+				}
+			}
+		}else{
+            looping = 0;
+			incomplete = 0;
+        }
+	}
+}	
 
 void setUp(){
     
@@ -135,7 +224,11 @@ void setUp(){
     SPEED->min_delay = MOVE_MIN_DELAY;
     SPEED->slope = START_SLOPE;
     SPEED->speed_delta = SPEED_DELTA;
-    SPEED->increment = INCREMENT;
+    SPEED->increment = 0;
+    SPEED->decrement = 0;
+    SPEED->half_slope = SPEED->slope / 2.0;
+    SPEED->f = SPEED->speed_delta / SPEED->slope;
+    SPEED->a = SPEED->f / SPEED->half_slope;
 
     BOT = (BotState *) malloc(sizeof(BotState));
     BOT->steps_a1 = 0;
@@ -216,7 +309,7 @@ void setUp(){
     digitalWrite(AXIS3_MOTOR_DIR, dir_axis3);
     digitalWrite(AXIS4_MOTOR_DIR, dir_axis4);
     digitalWrite(AXIS5_MOTOR_DIR, dir_axis5);
-
+	setupSerial();
 }
 
 void sync_bot(){
@@ -402,30 +495,41 @@ void sync_bot(){
 
 }
 
-
-int speed(int total_steps, int steps_left, int slope){
+int pstate = 0;
+int speed(int total_steps, int steps_left){
     int state = 1; // 1 = easing in, 2 = max speed, 3 = easing out
-    if (total_steps - steps_left < slope){
+    if (total_steps - steps_left < SPEED->slope){
         state = 1;
-    }else if(steps_left < slope){
+    }else if(steps_left < SPEED->slope){
         state = 3;
     }else{
         state = 2;
     }
 
-    int speed_inc = SPEED->increment;
+    int step = total_steps - steps_left;
 
     if (state == 1){
-        BOT->delay -= speed_inc;
+        if(step < SPEED->half_slope){
+            SPEED->increment += SPEED->a;
+        }else{
+            SPEED->increment -= SPEED->a;
+        }
+        BOT->delay -= SPEED->increment;
         if(BOT->delay < SPEED->min_delay){
            BOT->delay = SPEED->min_delay;
         }    
     }else if(state == 3){
-        BOT->delay += speed_inc;
-        if(BOT->delay > SPEED->max_delay){
-           BOT->delay = SPEED->max_delay;
-        }    
+        if(step < total_steps-SPEED->half_slope){
+            SPEED->decrement += SPEED->a;
+        }else{
+            SPEED->decrement -= SPEED->a;
+        }
+        BOT->delay += SPEED->decrement;
     }
+    //if(step%100 == 0){
+        //printf("delay %f state %i step %i \n", BOT->delay, state, step);
+    //}
+    pstate = state;
 }
 
 int max(int a, int b, int c, int d, int e){
@@ -438,13 +542,15 @@ int max(int a, int b, int c, int d, int e){
 }
 
 void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int numsteps5){
-    int slope;
     int done = 0;
     int longest = max(numsteps1, numsteps2, numsteps3, numsteps4, numsteps5);
     if(longest < (SPEED->slope*2)){
-        slope = longest / 2; 
-    }else{
-        slope = SPEED->slope;
+        SPEED->slope = longest / 2.0; 
+        SPEED->min_delay = SPEED->max_delay - SPEED->slope * (SPEED->speed_delta / longest);
+        SPEED->speed_delta = SPEED->max_delay - SPEED->min_delay;
+        SPEED->half_slope = SPEED->slope / 2.0;
+        SPEED->f = SPEED->speed_delta / SPEED->slope;
+        SPEED->a = SPEED->f*2.0 / SPEED->half_slope;
     }
     // printf("slope %i \n", slope);
     int c1 = 0, c2 = 0, c3 = 0, c4 = 0, c5 = 0;
@@ -456,7 +562,7 @@ void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int nu
     double f5 = (float)longest/numsteps5;
     while(counter < longest){
         rt_task_wait_period(NULL);
-        speed(longest, longest - counter, slope);
+        speed(longest, longest - counter);
         if(fmod(counter, f1) < 1.0  && c1 < numsteps1){
             digitalWrite(AXIS1_MOTOR_PULSE, HIGH);
             c1 ++;
@@ -548,26 +654,35 @@ int __home(lua_State *L){
 }
 
 int __move_to(lua_State *L){
+    //runReadLoop();
+    SPEED->increment = 0;
+    SPEED->decrement = 0;
     int axis_1 = lua_tonumber(L, 1);
     int axis_2 = lua_tonumber(L, 2);
     int axis_3 = lua_tonumber(L, 3);
     int axis_4 = lua_tonumber(L, 4);
     int axis_5 = lua_tonumber(L, 5);
     move_to(axis_1, axis_2, axis_3, axis_4, axis_5);
+    BOT->delay = SPEED->max_delay;
     return 0;
 }
 
 int __set_speed(lua_State *L){
-    int slope = lua_tonumber(L, 1);
-    int min_delay = lua_tonumber(L, 2);
-    int max_delay = lua_tonumber(L, 3);
-    int speed_delta = max_delay - min_delay;
-    int increment = speed_delta / slope;
+    float slope = lua_tonumber(L, 1);
+    float min_delay = lua_tonumber(L, 2);
+    float max_delay = lua_tonumber(L, 3);
+    float speed_delta = max_delay - min_delay;
     SPEED->max_delay = max_delay;
     SPEED->min_delay = min_delay;
     SPEED->slope = slope;
     SPEED->speed_delta = speed_delta;
-    SPEED->increment = increment;
+    SPEED->increment = 0.0;
+    SPEED->decrement = 0.0;
+    SPEED->half_slope = SPEED->slope / 2.0;
+    SPEED->f = SPEED->speed_delta / SPEED->slope;
+    SPEED->a = SPEED->f*2.0 / SPEED->half_slope;
+    BOT->delay = max_delay;
+    printf("speed settings f %f a %f slope %f speed delta %f\n",SPEED->f, SPEED->a, slope, speed_delta);
     return 0;
 }
 
@@ -576,7 +691,11 @@ int __set_default_speed(lua_State *L){
     SPEED->min_delay = MOVE_MIN_DELAY;
     SPEED->slope = START_SLOPE;
     SPEED->speed_delta = SPEED_DELTA;
-    SPEED->increment = INCREMENT;
+    SPEED->increment = 0;
+    SPEED->decrement = 0;
+    SPEED->half_slope = SPEED->slope / 2.0;
+    SPEED->f = SPEED->speed_delta / SPEED->slope;
+    SPEED->a = SPEED->f / SPEED->half_slope;
     return 0;
 }
 
