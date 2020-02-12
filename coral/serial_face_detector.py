@@ -76,8 +76,11 @@ def generate_svg(src_size, inference_size, inference_box, objs, labels, text_lin
     box_x, box_y, box_w, box_h = inference_box
     scale_x, scale_y = src_w / box_w, src_h / box_h
     largest_width = 0
-    for y, line in enumerate(text_lines, start=1):
-        shadow_text(dwg, 10, y*20, line)
+    largest_height = 0
+    largest_x = 0
+    largest_y = 0
+    # for y, line in enumerate(text_lines, start=1):
+    #     shadow_text(dwg, 10, y*20, line)
     for obj in objs:
         x0, y0, x1, y1 = list(obj.bbox)
         # Relative coordinates.
@@ -90,9 +93,9 @@ def generate_svg(src_size, inference_size, inference_box, objs, labels, text_lin
         x, y, w, h = x * scale_x, y * scale_y, w * scale_x, h * scale_y
         percent = int(100 * obj.score)
         label = '{}% {}'.format(percent, labels.get(obj.id, obj.id))
-        shadow_text(dwg, x, y - 5, label)
-        dwg.add(dwg.rect(insert=(x,y), size=(w, h),
-                        fill='none', stroke='grey', stroke_width='2'))
+        # shadow_text(dwg, x, y - 5, label)
+        # dwg.add(dwg.rect(insert=(x,y), size=(w, h),
+        #                 fill='none', stroke='grey', stroke_width='2'))
         #dwg.add(dwg.rect(insert=(x,y+int(h/3)), size=(w,int(h/7)),fill='black',stroke='black',stroke_width='2'))
         if w > largest_width:
             largest_width = w
@@ -100,12 +103,11 @@ def generate_svg(src_size, inference_size, inference_box, objs, labels, text_lin
             largest_x = x
             largest_y = y
         # print(output_frame.encode('utf-8'))
-    if largest_width > 0:    
-        
-        output_frame = "%04d,%04d,%04d,%04d"%(largest_x,largest_y,largest_width,largest_height)
-        print(output_frame)
-        dwg.add(dwg.rect(insert=(largest_x,largest_y), size=(largest_width,int(largest_height)),fill='none',stroke='white',stroke_width='4'))
-        ser.write(output_frame.encode('utf-8'))
+
+    output_frame = "%04d,%04d,%04d,%04d"%(largest_x,largest_y,largest_width,largest_height)
+    # print(output_frame)
+    dwg.add(dwg.rect(insert=(largest_x,largest_y), size=(largest_width,int(largest_height)),fill='none',stroke='white',stroke_width='4'))
+    ser.write(output_frame.encode('utf-8'))
     return dwg.tostring()
 
 class BBox(collections.namedtuple('BBox', ['xmin', 'ymin', 'xmax', 'ymax'])):
