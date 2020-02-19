@@ -210,7 +210,7 @@ def run_pipeline(user_function, appsink_size):
     if detectCoralDevBoard():
         scale_caps = None
         src_size = (1920, 1080)
-        PIPELINE += """ ! glupload ! tee name=t
+        PIPELINE += """ ! glupload ! glvideoflip video-direction=horiz ! tee name=t
             t. ! queue ! glfilterbin filter=glbox name=glbox ! {sink_caps} ! {sink_element}
             t. ! queue ! glsvgoverlaysink name=overlaysink
         """
