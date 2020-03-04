@@ -171,7 +171,7 @@ int setupSerial(){
 	//	PARODD - Odd parity (else even)
 	struct termios options;
 	tcgetattr(uart0_filestream, &options);
-	options.c_cflag = B1152000 | CS8 | CLOCAL | CREAD;		//<Set baud rate
+	options.c_cflag = B9600 | CS8 | CLOCAL | CREAD;		//<Set baud rate
 	options.c_iflag = IGNPAR;
 	options.c_oflag = 0;
 	options.c_lflag = 0;
@@ -185,13 +185,14 @@ const char * runReadLoop(char * buf) {
 	looping = 1;
 	int incomplete = 1;
 	int incomingChars  = 0;
-    const char rect[19] = ""; 
+    char rect[19] = ""; 
+    int collecting = 0;
 	while(looping || incomplete){
 		//----- CHECK FOR ANY RX BYTES -----
 		if (uart0_filestream != -1)
 		{
 			// Read up to 255 characters from the port if they are there
-			unsigned char rx_buffer[256];
+			char rx_buffer[256];
 			int rx_length = read(uart0_filestream, (void*)rx_buffer, 255);		//Filestream, buffer to store in, number of bytes to read (max)
 			if (rx_length < 0)
 			{
@@ -203,11 +204,20 @@ const char * runReadLoop(char * buf) {
 			}
 			else
 			{
-				incomingChars += rx_length;
-				//Bytes received
 				rx_buffer[rx_length] = '\0';
+                if(strstr(rx_buffer, "*") != NULL) {
+				    //printf("end : %s\n", rx_buffer);
+                    collecting = 0;
+                }
+                if(collecting){
+				    incomingChars += rx_length;
+                    strcat(rect, rx_buffer);
+                }
+                if(strstr(rx_buffer, "#") != NULL) {
+				    //printf("start : %s\n", rx_buffer);
+                    collecting = 1;
+                }
 				//printf("%i bytes read : %s\n", rx_length, rx_buffer);
-                strcat(rect, rx_buffer);
 				looping = 0;
 				if (incomingChars >=19) {
 				    incomplete = 0;
@@ -663,6 +673,7 @@ int __read_face_rect(lua_State *L){
     char rect[20];
     memset(rect,0,20);
     runReadLoop(rect);
+    printf("rect %s \n", rect);
     lua_pushstring(L, rect);
     return 1;
 }

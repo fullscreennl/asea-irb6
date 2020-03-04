@@ -75,7 +75,7 @@ end
 
 set_speed(2000, 13000*20, 200000*20) -- slope min max
 base_rotation = 0
-move_multiplier = 3
+move_multiplier = 5 
 while true
     do
     move_to(base_rotation,-8000,0,-1500,-7500)
@@ -85,7 +85,7 @@ while true
         print("- - - - ")
         print(dir[1])
         print(dir[2])
-        set_speed(600, 13000*20, 300000*20)
+        set_speed(600, 23000*20, 300000*20)
         if (dir[1] == 'l') then
             base_rotation = base_rotation - dir[2] * move_multiplier  
         elseif (dir[1] == 'r') then
@@ -103,7 +103,7 @@ while true
         print("- - - - ")
         print(dir[1])
         print(dir[2])
-        set_speed(600, 13000*20, 300000*20)
+        set_speed(600, 23000*20, 300000*20)
         if (dir[1] == 'l') then
             base_rotation = base_rotation - dir[2] * move_multiplier
         elseif (dir[1] == 'r') then
