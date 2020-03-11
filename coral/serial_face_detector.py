@@ -39,12 +39,13 @@ import time
 import serial
 
 ser = None
+nullframe_appearance = 0
 
 def init():
     global ser
     ser = serial.Serial(
         port='/dev/ttymxc2', #Replace ttyS0 with ttyAMA0 for Pi1,Pi2,Pi0
-        baudrate = 1152000, # match with couterpart receiving code
+        baudrate = 9600, # match with couterpart receiving code
         parity=serial.PARITY_NONE,
         stopbits=serial.STOPBITS_ONE,
         bytesize=serial.EIGHTBITS,
@@ -79,8 +80,13 @@ def generate_svg(src_size, inference_size, inference_box, objs, labels, text_lin
     largest_height = 0
     largest_x = 0
     largest_y = 0
+    global nullframe_appearance
     # for y, line in enumerate(text_lines, start=1):
     #     shadow_text(dwg, 10, y*20, line)
+    if len(objs) == 0:
+        nullframe_appearance += 1
+    else:
+        nullframe_appearance = 0
     for obj in objs:
         x0, y0, x1, y1 = list(obj.bbox)
         # Relative coordinates.
@@ -104,10 +110,13 @@ def generate_svg(src_size, inference_size, inference_box, objs, labels, text_lin
             largest_y = y
         # print(output_frame.encode('utf-8'))
 
-    output_frame = "%04d,%04d,%04d,%04d"%(largest_x,largest_y,largest_width,largest_height)
+    output_frame = "#%04d,%04d,%04d,%04d*"%(largest_x,largest_y,largest_width,largest_height)
     # print(output_frame)
     dwg.add(dwg.rect(insert=(largest_x,largest_y), size=(largest_width,int(largest_height)),fill='none',stroke='white',stroke_width='4'))
-    ser.write(output_frame.encode('utf-8'))
+    if nullframe_appearance > 10 or nullframe_appearance == 0:
+        nullframe_appearance = 0
+        print(output_frame)
+        ser.write(output_frame.encode('utf-8'))
     return dwg.tostring()
 
 class BBox(collections.namedtuple('BBox', ['xmin', 'ymin', 'xmax', 'ymax'])):
