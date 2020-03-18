@@ -40,7 +40,8 @@ import serial
 
 ser = None
 nullframe_appearance = 0
-
+averages_x = []
+lastframe = '#0000,0000,0000,0000*'
 def init():
     global ser
     ser = serial.Serial(
@@ -80,7 +81,7 @@ def generate_svg(src_size, inference_size, inference_box, objs, labels, text_lin
     largest_height = 0
     largest_x = 0
     largest_y = 0
-    global nullframe_appearance
+    global nullframe_appearance, averages_x, lastframe
     # for y, line in enumerate(text_lines, start=1):
     #     shadow_text(dwg, 10, y*20, line)
     if len(objs) == 0:
@@ -108,16 +109,33 @@ def generate_svg(src_size, inference_size, inference_box, objs, labels, text_lin
             largest_height = h
             largest_x = x
             largest_y = y
+            averages_x.append(largest_x)
         # print(output_frame.encode('utf-8'))
 
     output_frame = "#%04d,%04d,%04d,%04d*"%(largest_x,largest_y,largest_width,largest_height)
     # print(output_frame)
     dwg.add(dwg.rect(insert=(largest_x,largest_y), size=(largest_width,int(largest_height)),fill='none',stroke='white',stroke_width='4'))
     if nullframe_appearance > 10 or nullframe_appearance == 0:
+        if nullframe_appearance > 10:
+            averages_x = []
         nullframe_appearance = 0
-        print(output_frame)
-        ser.write(output_frame.encode('utf-8'))
+        # print(output_frame)
+        if abs(calc_average(averages_x[-10:]) - largest_x) < 50:        
+            ser.write(output_frame.encode('utf-8'))
+            print (output_frame)
+            lastframe = output_frame
+        else: 
+            ser.write(lastframe.encode('utf-8'))
+            print(lastframe)
     return dwg.tostring()
+
+def calc_average(data):
+    if len(data) == 0:
+        return 0
+    total = 0
+    for ele in data:
+        total += ele
+    return round(total/len(data))
 
 class BBox(collections.namedtuple('BBox', ['xmin', 'ymin', 'xmax', 'ymax'])):
     """Bounding box.
