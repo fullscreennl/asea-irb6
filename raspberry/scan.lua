@@ -62,21 +62,29 @@ function scan()
             screen_center_y = 1080/2
             if (center_x < screen_center_x)
             then
-                return {'r', screen_center_x - center_x}
+                return {'r', screen_center_x - center_x, w}
             else
-                return {'l', center_x - screen_center_x}
+                return {'l', center_x - screen_center_x, w}
             end
         end
     else
         print('no face')
-        return {'0', 0}
+        return {'0', 0, 0}
     end
+end
+
+
+function mult(w)
+    if w > 0 then
+       return -0.0055 * w + 5.0
+    end
+    return 3
 end
 
 set_speed(2000, 13000*20, 200000*20) -- slope min max
 base_rotation = 0
 head_rotation = -7500
-move_multiplier = 5 
+move_multiplier = 2.25 
 base_positions = {0, 10000, 20000, 30000}
 head_rotations = {0, -15000}
 base_positions_index = 1
@@ -88,6 +96,11 @@ while true
     dir = scan()
     if dir ~= nil
     then
+        move_multiplier = mult(dir[3])
+        if dir[2] < 200  and dir[1] ~= '0' then
+            zoom = 7000
+            goto continue
+        end
         print("- - - - ")
         print(dir[1])
         print(dir[2])
@@ -118,6 +131,7 @@ while true
             
         end
     end
+    ::continue::
 end
 
 move_to(0,0,0,0,0)
