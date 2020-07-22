@@ -42,35 +42,7 @@ end
 
 
 function scan()
-    rect = get_face_rect()
-    print(rect)
-    if (rect ~= "0000,0000,0000,0000") 
-    then
-        elems = split(rect, ",")
-        local x = tonumber(elems[1])
-        local y = tonumber(elems[2])
-        local w = tonumber(elems[3])
-        local h = tonumber(elems[4])
-        if (x == nil or y == nil or w == nil or h == nil)
-        then
-			sleep(0.01)
-			scan()
-        else
-            center_x = x + w/2.0
-            center_y = y + h/2.0
-            screen_center_x = 1920/2
-            screen_center_y = 1080/2
-            if (center_x < screen_center_x)
-            then
-                return {'r', screen_center_x - center_x, w}
-            else
-                return {'l', center_x - screen_center_x, w}
-            end
-        end
-    else
-        print('no face')
-        return {'0', 0, 0}
-    end
+    return {'0', 0, 0}
 end
 
 
@@ -85,7 +57,7 @@ set_speed(2000, 13000*20, 200000*20) -- slope min max
 base_rotation = 0
 head_rotation = -7500
 move_multiplier = 2.25 
-base_positions = {0, 10000, 20000, 30000}
+base_positions = {0, 10000, -20000, 30000}
 head_rotations = {0, -15000}
 base_positions_index = 1
 head_rotation_index = 1

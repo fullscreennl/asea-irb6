@@ -5,8 +5,6 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <stdlib.h>
-#include <fcntl.h> //Used for UART
-#include <termios.h>	
 
 #include <wiringPi.h>
 #include <boilerplate/ancillaries.h>
@@ -47,6 +45,10 @@
  +-----+-----+---------+------+---+---Pi 3B+-+---+------+---------+-----+-----+
 
 */
+
+// green screw terminal on the PI = BCM column
+// defined gpio in software = wPi column
+
 #define AXIS1_MOTOR_PULSE 0    // io17
 #define AXIS1_MOTOR_DIR 1      // io18
 
@@ -67,6 +69,8 @@
 #define LIMIT3 29              // io21
 #define LIMIT4 23              // io13
 #define LIMIT5 25              // io26
+
+#define FACE 24                // io19             
 
 #define SYNC_OVERSHOOT_STEPS 2000
 
@@ -138,101 +142,6 @@ int _digitalRead(int input){
     }
 }
 
-int setupSerial(){
-	//OPEN THE UART
-	//The flags (defined in fcntl.h):
-	//	Access modes (use 1 of these):
-	//		O_RDONLY - Open for reading only.
-	//		O_RDWR - Open for reading and writing.
-	//		O_WRONLY - Open for writing only.
-	//
-	//	O_NDELAY / O_NONBLOCK (same function) - Enables nonblocking mode. When set read requests on the file can return immediately with a failure status
-	//											if there is no input immediately available (instead of blocking). Likewise, write requests can also return
-	//											immediately with a failure status if the output can't be written immediately.
-	//
-	//	O_NOCTTY - When set and path identifies a terminal device, open() shall not cause the terminal device to become the controlling terminal for the process.
-	uart0_filestream = open("/dev/ttyS0", O_RDWR | O_NOCTTY | O_NDELAY);		//Open in non blocking read/write mode
-	if (uart0_filestream == -1)
-	{
-		//ERROR - CAN'T OPEN SERIAL PORT
-		printf("Error - Unable to open UART.  Ensure it is not in use by another application\n");
-	}	
-
-	//CONFIGURE THE UART
-	//The flags (defined in /usr/include/termios.h - see http://pubs.opengroup.org/onlinepubs/007908799/xsh/termios.h.html):
-	//	Baud rate:- B1200, B2400, B4800, B9600, B19200, B38400, B57600, B115200, B230400, B460800,
-    //  B500000, B576000, B921600, B1000000, B1152000, B1500000, B2000000, B2500000, B3000000, B3500000, B4000000
-	//	CSIZE:- CS5, CS6, CS7, CS8
-	//	CLOCAL - Ignore modem status lines
-	//	CREAD - Enable receiver
-	//	IGNPAR = Ignore characters with parity errors
-	//	ICRNL - Map CR to NL on input (Use for ASCII comms where you want to auto correct end of line characters - don't use for bianry comms!)
-	//	PARENB - Parity enable
-	//	PARODD - Odd parity (else even)
-	struct termios options;
-	tcgetattr(uart0_filestream, &options);
-	options.c_cflag = B9600 | CS8 | CLOCAL | CREAD;		//<Set baud rate
-	options.c_iflag = IGNPAR;
-	options.c_oflag = 0;
-	options.c_lflag = 0;
-	tcflush(uart0_filestream, TCIFLUSH);
-	tcsetattr(uart0_filestream, TCSANOW, &options);
-    //runReadLoop();
-}
-
-const char * runReadLoop(char * buf) {
-	tcflush(uart0_filestream,TCIFLUSH);
-	looping = 1;
-	int incomplete = 1;
-	int incomingChars  = 0;
-    char rect[19] = ""; 
-    int collecting = 0;
-	while(looping || incomplete){
-		//----- CHECK FOR ANY RX BYTES -----
-		if (uart0_filestream != -1)
-		{
-			// Read up to 255 characters from the port if they are there
-			char rx_buffer[256];
-			int rx_length = read(uart0_filestream, (void*)rx_buffer, 255);		//Filestream, buffer to store in, number of bytes to read (max)
-			if (rx_length < 0)
-			{
-				//An error occured (will occur if there are no bytes)
-			}
-			else if (rx_length == 0)
-			{
-				//No data waiting
-			}
-			else
-			{
-				rx_buffer[rx_length] = '\0';
-                if(strstr(rx_buffer, "*") != NULL) {
-				    //printf("end : %s\n", rx_buffer);
-                    collecting = 0;
-                }
-                if(collecting){
-				    incomingChars += rx_length;
-                    strcat(rect, rx_buffer);
-                }
-                if(strstr(rx_buffer, "#") != NULL) {
-				    //printf("start : %s\n", rx_buffer);
-                    collecting = 1;
-                }
-				//printf("%i bytes read : %s\n", rx_length, rx_buffer);
-				looping = 0;
-				if (incomingChars >=19) {
-				    incomplete = 0;
-                    strncpy(buf, rect, 19);
-                    return buf;
-				}
-			}
-		}else{
-            looping = 0;
-			incomplete = 0;
-        }
-	}
-    printf("----------------\n");
-}	
-
 void setUp(){
     
     SPEED = (SpeedState*) malloc(sizeof(SpeedState));
@@ -278,6 +187,10 @@ void setUp(){
     pinMode(LIMIT3, INPUT);
     pinMode(LIMIT4, INPUT);
     pinMode(LIMIT5, INPUT);
+
+    //FACE DETECTION
+    pinMode(FACE, INPUT);
+    pullUpDnControl(FACE, PUD_UP);
 
     //pull up
     pullUpDnControl(LIMIT1, PUD_UP);
@@ -325,7 +238,6 @@ void setUp(){
     digitalWrite(AXIS3_MOTOR_DIR, dir_axis3);
     digitalWrite(AXIS4_MOTOR_DIR, dir_axis4);
     digitalWrite(AXIS5_MOTOR_DIR, dir_axis5);
-	setupSerial();
 }
 
 void sync_bot(){
@@ -600,6 +512,14 @@ void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int nu
             c5 ++;
         } 
         rt_task_sleep(2000);
+
+        int face_state = _digitalRead(FACE);
+        if (face_state == HIGH){
+            printf("has face %i\n", face_state);
+        }else{
+            printf("no face %i\n", face_state);
+        }
+
         digitalWrite(AXIS1_MOTOR_PULSE, LOW);
         digitalWrite(AXIS2_MOTOR_PULSE, LOW);
         digitalWrite(AXIS3_MOTOR_PULSE, LOW);
@@ -669,15 +589,6 @@ int __home(lua_State *L){
     sync_bot();
 }
 
-int __read_face_rect(lua_State *L){
-    char rect[20];
-    memset(rect,0,20);
-    runReadLoop(rect);
-    printf("rect %s \n", rect);
-    lua_pushstring(L, rect);
-    return 1;
-}
-
 int __move_to(lua_State *L){
     SPEED->increment = 0;
     SPEED->decrement = 0;
@@ -732,7 +643,6 @@ void loadLua(char *script){
     lua_register(L,"move_to",__move_to);
     lua_register(L,"home",__home);
     lua_register(L,"set_speed",__set_speed);
-    lua_register(L,"get_face_rect",__read_face_rect);
     lua_register(L,"set_default_speed",__set_default_speed);
 
     if (luaL_loadfile(L, script)){
