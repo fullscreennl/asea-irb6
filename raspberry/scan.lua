@@ -53,7 +53,7 @@ function mult(w)
     return 3
 end
 
-set_speed(2000, 13000*20, 200000*20) -- slope min max
+set_speed(4000, 13000*20, 200000*20) -- slope min max
 base_rotation = 0
 head_rotation = -7500
 move_multiplier = 2.25 
@@ -62,97 +62,14 @@ head_rotations = {0, -15000}
 base_positions_index = 1
 head_rotation_index = 1
 zoom = -8000
+move_to(base_rotation,zoom,0,-1500,-7500)
 while true
     do
-    move_to(base_rotation,zoom,0,-1500,-7500)
-    dir = scan()
-    if dir ~= nil
-    then
-        move_multiplier = mult(dir[3])
-        if dir[2] < 200  and dir[1] ~= '0' then
-            zoom = 7000
-            goto continue
-        end
-        print("- - - - ")
-        print(dir[1])
-        print(dir[2])
-        set_speed(600, 23000*20, 300000*20)
-        if (dir[1] == 'l') then
-            zoom = 7000
-            base_rotation = base_rotation - dir[2] * move_multiplier  
-        elseif (dir[1] == 'r') then
-            zoom = 7000
-            base_rotation = base_rotation + dir[2] * move_multiplier
-        else
-            set_speed(2000, 13000*10, 200000*10)
-            zoom = -8000
-            move_to(base_rotation,zoom,0,-1500,head_rotation)
-            set_speed(2000, 13000*20, 200000*20)
-            
-            base_positions_index = base_positions_index + 1
-            if base_positions_index > 4 then    
-               base_positions_index = 1 
-            end
-            base_rotation = base_positions[base_positions_index]
-
-            head_rotation_index = head_rotation_index + 1
-            if head_rotation_index > 2 then    
-               head_rotation_index = 1 
-            end
-            head_rotation = head_rotations[head_rotation_index]
-            
-        end
-    end
-    ::continue::
+    set_speed(4000, 13000*20, 200000*20) -- slope min max
+    move_to(-20000,zoom,0,-1500,-7500)
+    set_speed(4000, 13000*20, 200000*20) -- slope min max
+    move_to(30000,zoom,0,-1500,-7500)
+    set_speed(4000, 13000*20, 200000*20) -- slope min max
+    move_to(32000,zoom,0,-1500,-7500)
 end
 
-move_to(0,0,0,0,0)
-
---[[
-set_speed(2000, 20000*20, 300000*20) -- slope min max
-move_to(0,-8000,0,-1500,-7500)
-
---set_speed(3000, 13000*3, 300000*3) -- slope min max
-move_to(0,-8000,0,-1500,1000)
-move_to(0,-8000,0,-1500,-7500)
-move_to(0,-8000,0,-1500,-16000)
-
---set_speed(2000, 20000*5, 300000*5) -- slope min max
-move_to(20000,-8000,0,-1500,-7500)
-
---set_speed(3000, 13000*3, 300000*3) -- slope min max
-move_to(20000,-8000,0,-1500,1000)
-move_to(20000,-8000,0,-1500,-7500)
-move_to(20000,-8000,0,-1500,-16000)
-
---set_speed(2000, 20000*5, 300000*5) -- slope min max
-move_to(35000,-8000,0,-1500,-7500)
-
---set_speed(3000, 13000*3, 300000*3) -- slope min max
-move_to(35000,-8000,0,-1500,1000)
-move_to(35000,-8000,0,-1500,-7500)
-move_to(35000,-8000,0,-1500,-16000)
-
---set_speed(2000, 20000*5, 300000*5) -- slope min max
-move_to(-20000,-8000,0,-1500,-7500)
-
---set_speed(3000, 13000*3, 300000*3) -- slope min max
-move_to(-20000,-8000,0,-1500,1000)
-move_to(-20000,-8000,0,-1500,-7500)
-move_to(-20000,-8000,0,-1500,-16000)
-
---set_speed(2000, 20000*5, 300000*5) -- slope min max
-move_to(-35000,-8000,0,-1500,-7500)
-
---set_speed(3000, 13000*3, 300000*3) -- slope min max
-move_to(-35000,-8000,0,-1500,1000)
-move_to(-35000,-8000,0,-1500,-7500)
-move_to(-35000,-8000,0,-1500,-16000)
-
---home
---set_speed(2000, 20000*5, 300000*5) -- slope min max
-move_to(0,0,0,0,0)
-
--- rect = get_face_rect()
--- print(rect)
-]]--

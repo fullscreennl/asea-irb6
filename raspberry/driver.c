@@ -49,6 +49,8 @@
 // green screw terminal on the PI = BCM column
 // defined gpio in software = wPi column
 
+#define MIN(a,b) (((a)<(b))?(a):(b))
+
 #define AXIS1_MOTOR_PULSE 0    // io17
 #define AXIS1_MOTOR_DIR 1      // io18
 
@@ -81,7 +83,7 @@
 #define CCW LOW
 
 #define MOVE_MAX_DELAY 300000
-#define MOVE_MIN_DELAY 22000
+#define MOVE_MIN_DELAY 50000
 #define SPEED_DELTA (MOVE_MAX_DELAY - MOVE_MIN_DELAY) 
 #define START_SLOPE 45000
 #define INCREMENT (SPEED_DELTA / START_SLOPE)
@@ -98,6 +100,11 @@ typedef struct AseaBotState{
     int steps_a3;
     int steps_a4;
     int steps_a5;
+    int dir_a1;
+    int dir_a2;
+    int dir_a3;
+    int dir_a4;
+    int dir_a5;
     float delay;
 }BotState;
 
@@ -454,9 +461,9 @@ int speed(int total_steps, int steps_left){
         }
         BOT->delay += SPEED->decrement;
     }
-    //if(step%100 == 0){
-        //printf("delay %f state %i step %i \n", BOT->delay, state, step);
-    //}
+    if(step%100 == 0){
+        printf("delay %f state %i step %i \n", BOT->delay, state, step);
+    }
     pstate = state;
 }
 
@@ -469,10 +476,14 @@ int max(int a, int b, int c, int d, int e){
     return l;
 }
 
+
 void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int numsteps5){
     int done = 0;
+    int scanning = 1;
     int longest = max(numsteps1, numsteps2, numsteps3, numsteps4, numsteps5);
-    if(longest < (SPEED->slope*2)){
+    
+    printf("longest %i \n",longest);
+	if(longest < (SPEED->slope*2)){
         SPEED->slope = longest / 2.0; 
         SPEED->min_delay = SPEED->max_delay - SPEED->slope * (SPEED->speed_delta / longest);
         SPEED->speed_delta = SPEED->max_delay - SPEED->min_delay;
@@ -480,7 +491,7 @@ void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int nu
         SPEED->f = SPEED->speed_delta / SPEED->slope;
         SPEED->a = SPEED->f*2.0 / SPEED->half_slope;
     }
-    // printf("slope %i \n", slope);
+
     int c1 = 0, c2 = 0, c3 = 0, c4 = 0, c5 = 0;
     int counter = 0;
     double f1 = (float)longest/numsteps1;
@@ -494,37 +505,63 @@ void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int nu
         if(fmod(counter, f1) < 1.0  && c1 < numsteps1){
             digitalWrite(AXIS1_MOTOR_PULSE, HIGH);
             c1 ++;
+            if(BOT->dir_a1 == CW){
+                BOT->steps_a1 ++;
+            }else{
+                BOT->steps_a1 --;
+            }
         } 
         if(fmod(counter, f2) < 1.0  && c2 < numsteps2){
             digitalWrite(AXIS2_MOTOR_PULSE, HIGH);
             c2 ++;
+            if(BOT->dir_a2 == CW){
+                BOT->steps_a2 ++;
+            }else{
+                BOT->steps_a2 --;
+            }
         } 
         if(fmod(counter, f3) < 1.0  && c3 < numsteps3){
             digitalWrite(AXIS3_MOTOR_PULSE, HIGH);
             c3 ++;
+            if(BOT->dir_a3 == CW){
+                BOT->steps_a3 ++;
+            }else{
+                BOT->steps_a3 --;
+            }
         } 
         if(fmod(counter, f4) < 1.0  && c4 < numsteps4){
             digitalWrite(AXIS4_MOTOR_PULSE, HIGH);
             c4 ++;
+            if(BOT->dir_a4 == CW){
+                BOT->steps_a4 ++;
+            }else{
+                BOT->steps_a4 --;
+            }
         } 
         if(fmod(counter, f5) < 1.0  && c5 < numsteps5){
             digitalWrite(AXIS5_MOTOR_PULSE, HIGH);
             c5 ++;
+            if(BOT->dir_a5 == CW){
+                BOT->steps_a5 ++;
+            }else{
+                BOT->steps_a5 --;
+            }
         } 
         rt_task_sleep(2000);
-
-        int face_state = _digitalRead(FACE);
-        if (face_state == HIGH){
-            printf("has face %i\n", face_state);
-        }else{
-            printf("no face %i\n", face_state);
-        }
-
+        
         digitalWrite(AXIS1_MOTOR_PULSE, LOW);
         digitalWrite(AXIS2_MOTOR_PULSE, LOW);
         digitalWrite(AXIS3_MOTOR_PULSE, LOW);
         digitalWrite(AXIS4_MOTOR_PULSE, LOW);
         digitalWrite(AXIS5_MOTOR_PULSE, LOW);
+
+        int face_state = _digitalRead(FACE);
+        if (face_state == HIGH && scanning){
+            printf("has face %i\n", face_state);
+            return;
+            scanning = 0;
+        }
+
         rt_task_set_periodic(&sync_task, TM_NOW, BOT->delay);
         counter ++;
     }
@@ -540,34 +577,39 @@ int move_to(int steps1, int steps2, int steps3, int steps4, int steps5){
     int steps_to_move_a5 = abs(steps5 - BOT->steps_a5);
     if(steps1 < BOT->steps_a1){
         digitalWrite(AXIS1_MOTOR_DIR, CCW);
+        BOT->dir_a1 = CCW;
     }else{
         digitalWrite(AXIS1_MOTOR_DIR, CW);
+        BOT->dir_a1 = CW;
     }
     if(steps2 < BOT->steps_a2){
         digitalWrite(AXIS2_MOTOR_DIR, CCW);
+        BOT->dir_a2 = CCW;
     }else{
         digitalWrite(AXIS2_MOTOR_DIR, CW);
+        BOT->dir_a2 = CW;
     }
     if(steps3 < BOT->steps_a3){
         digitalWrite(AXIS3_MOTOR_DIR, CCW);
+        BOT->dir_a3 = CCW;
     }else{
         digitalWrite(AXIS3_MOTOR_DIR, CW);
+        BOT->dir_a3 = CW;
     }
     if(steps4 < BOT->steps_a4){
         digitalWrite(AXIS4_MOTOR_DIR, CCW);
+        BOT->dir_a4 = CCW;
     }else{
         digitalWrite(AXIS4_MOTOR_DIR, CW);
+        BOT->dir_a4 = CW;
     }
     if(steps5 < BOT->steps_a5){
         digitalWrite(AXIS5_MOTOR_DIR, CCW);
+        BOT->dir_a5 = CCW;
     }else{
         digitalWrite(AXIS5_MOTOR_DIR, CW);
+        BOT->dir_a5 = CW;
     }
-    BOT->steps_a1 = steps1;
-    BOT->steps_a2 = steps2;
-    BOT->steps_a3 = steps3;
-    BOT->steps_a4 = steps4;
-    BOT->steps_a5 = steps5;
     move_bot(steps_to_move_a1, steps_to_move_a2, steps_to_move_a3, steps_to_move_a4, steps_to_move_a5);
 }
 
