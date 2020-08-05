@@ -70,6 +70,14 @@ while true
     set_speed(4000, 13000*20, 200000*20) -- slope min max
     move_to(30000,zoom,0,-1500,-7500)
     set_speed(4000, 13000*20, 200000*20) -- slope min max
-    move_to(32000,zoom,0,-1500,-7500)
+    move_to(32000,0,0,-1500,-7500)
+    set_speed(4000, 13000*20, 200000*20) -- slope min max
+    move_to(32000,0,3000,-1500,-7500)
+    set_speed(4000, 13000*20, 200000*20) -- slope min max
+    move_to(20000,-8000,0,-1500,1000)
+    set_speed(4000, 13000*20, 200000*20) -- slope min max
+    move_to(20000,-8000,0,-1500,-7500)
+    set_speed(4000, 13000*20, 200000*20) -- slope min max
+    move_to(20000,-8000,0,-1500,-16000)
 end
 

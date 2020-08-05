@@ -467,6 +467,14 @@ int speed(int total_steps, int steps_left){
     pstate = state;
 }
 
+int stop(int total_steps, int steps_left){
+    BOT->delay += SPEED->f;
+    if(BOT->delay > SPEED->max_delay){
+        BOT->delay = SPEED->max_delay;
+    }
+    printf("stopping delay %f  \n", BOT->delay);
+}
+
 int max(int a, int b, int c, int d, int e){
     int l = a;
     if(b > l){l = b;}
@@ -479,9 +487,8 @@ int max(int a, int b, int c, int d, int e){
 
 void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int numsteps5){
     int done = 0;
-    int scanning = 1;
     int longest = max(numsteps1, numsteps2, numsteps3, numsteps4, numsteps5);
-    
+    int exit_easing = 0;
     printf("longest %i \n",longest);
 	if(longest < (SPEED->slope*2)){
         SPEED->slope = longest / 2.0; 
@@ -499,9 +506,31 @@ void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int nu
     double f3 = (float)longest/numsteps3;
     double f4 = (float)longest/numsteps4;
     double f5 = (float)longest/numsteps5;
-    while(counter < longest){
+    int _face_state = _digitalRead(FACE);
+    while (_face_state == HIGH){
         rt_task_wait_period(NULL);
-        speed(longest, longest - counter);
+        _face_state = _digitalRead(FACE);
+        rt_task_sleep(2000);
+        rt_task_set_periodic(&sync_task, TM_NOW, BOT->delay);
+    }
+    while(counter < longest){
+       
+        int face_state = _digitalRead(FACE);
+        if (face_state == HIGH && exit_easing == 0){
+            printf("has face %i\n", face_state);
+            int new_slope = (int)(SPEED->max_delay - BOT->delay)/SPEED->f;
+            longest = counter + new_slope;
+            SPEED->half_slope = (int)(new_slope/2.0);
+            printf("new slope %i\n", new_slope);
+            exit_easing = 1;
+        }
+
+        rt_task_wait_period(NULL);
+        if(face_state == HIGH){
+            stop(longest, longest - counter);
+        }else{
+            speed(longest, longest - counter);
+        }
         if(fmod(counter, f1) < 1.0  && c1 < numsteps1){
             digitalWrite(AXIS1_MOTOR_PULSE, HIGH);
             c1 ++;
@@ -555,12 +584,6 @@ void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int nu
         digitalWrite(AXIS4_MOTOR_PULSE, LOW);
         digitalWrite(AXIS5_MOTOR_PULSE, LOW);
 
-        int face_state = _digitalRead(FACE);
-        if (face_state == HIGH && scanning){
-            printf("has face %i\n", face_state);
-            return;
-            scanning = 0;
-        }
 
         rt_task_set_periodic(&sync_task, TM_NOW, BOT->delay);
         counter ++;
