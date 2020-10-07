@@ -5,8 +5,6 @@
 #include <unistd.h>
 #include <sys/mman.h>
 #include <stdlib.h>
-#include <fcntl.h> //Used for UART
-#include <termios.h>	
 
 #include <wiringPi.h>
 #include <boilerplate/ancillaries.h>
@@ -47,6 +45,12 @@
  +-----+-----+---------+------+---+---Pi 3B+-+---+------+---------+-----+-----+
 
 */
+
+// green screw terminal on the PI = BCM column
+// defined gpio in software = wPi column
+
+#define MIN(a,b) (((a)<(b))?(a):(b))
+
 #define AXIS1_MOTOR_PULSE 0    // io17
 #define AXIS1_MOTOR_DIR 1      // io18
 
@@ -68,6 +72,10 @@
 #define LIMIT4 23              // io13
 #define LIMIT5 25              // io26
 
+#define FACE 24                // io19             
+#define FACE_TRACK_1 15                   
+#define FACE_TRACK_2 16             
+
 #define SYNC_OVERSHOOT_STEPS 2000
 
 #define SYNC_DELAY 4000000
@@ -77,7 +85,7 @@
 #define CCW LOW
 
 #define MOVE_MAX_DELAY 300000
-#define MOVE_MIN_DELAY 22000
+#define MOVE_MIN_DELAY 50000
 #define SPEED_DELTA (MOVE_MAX_DELAY - MOVE_MIN_DELAY) 
 #define START_SLOPE 45000
 #define INCREMENT (SPEED_DELTA / START_SLOPE)
@@ -89,11 +97,21 @@ int looping = 1;
 RT_TASK sync_task;
 
 typedef struct AseaBotState{
+    int target_a1;
+    int target_a2;
+    int target_a3;
+    int target_a4;
+    int target_a5;
     int steps_a1;
     int steps_a2;
     int steps_a3;
     int steps_a4;
     int steps_a5;
+    int dir_a1;
+    int dir_a2;
+    int dir_a3;
+    int dir_a4;
+    int dir_a5;
     float delay;
 }BotState;
 
@@ -137,101 +155,6 @@ int _digitalRead(int input){
         }
     }
 }
-
-int setupSerial(){
-	//OPEN THE UART
-	//The flags (defined in fcntl.h):
-	//	Access modes (use 1 of these):
-	//		O_RDONLY - Open for reading only.
-	//		O_RDWR - Open for reading and writing.
-	//		O_WRONLY - Open for writing only.
-	//
-	//	O_NDELAY / O_NONBLOCK (same function) - Enables nonblocking mode. When set read requests on the file can return immediately with a failure status
-	//											if there is no input immediately available (instead of blocking). Likewise, write requests can also return
-	//											immediately with a failure status if the output can't be written immediately.
-	//
-	//	O_NOCTTY - When set and path identifies a terminal device, open() shall not cause the terminal device to become the controlling terminal for the process.
-	uart0_filestream = open("/dev/ttyS0", O_RDWR | O_NOCTTY | O_NDELAY);		//Open in non blocking read/write mode
-	if (uart0_filestream == -1)
-	{
-		//ERROR - CAN'T OPEN SERIAL PORT
-		printf("Error - Unable to open UART.  Ensure it is not in use by another application\n");
-	}	
-
-	//CONFIGURE THE UART
-	//The flags (defined in /usr/include/termios.h - see http://pubs.opengroup.org/onlinepubs/007908799/xsh/termios.h.html):
-	//	Baud rate:- B1200, B2400, B4800, B9600, B19200, B38400, B57600, B115200, B230400, B460800,
-    //  B500000, B576000, B921600, B1000000, B1152000, B1500000, B2000000, B2500000, B3000000, B3500000, B4000000
-	//	CSIZE:- CS5, CS6, CS7, CS8
-	//	CLOCAL - Ignore modem status lines
-	//	CREAD - Enable receiver
-	//	IGNPAR = Ignore characters with parity errors
-	//	ICRNL - Map CR to NL on input (Use for ASCII comms where you want to auto correct end of line characters - don't use for bianry comms!)
-	//	PARENB - Parity enable
-	//	PARODD - Odd parity (else even)
-	struct termios options;
-	tcgetattr(uart0_filestream, &options);
-	options.c_cflag = B9600 | CS8 | CLOCAL | CREAD;		//<Set baud rate
-	options.c_iflag = IGNPAR;
-	options.c_oflag = 0;
-	options.c_lflag = 0;
-	tcflush(uart0_filestream, TCIFLUSH);
-	tcsetattr(uart0_filestream, TCSANOW, &options);
-    //runReadLoop();
-}
-
-const char * runReadLoop(char * buf) {
-	tcflush(uart0_filestream,TCIFLUSH);
-	looping = 1;
-	int incomplete = 1;
-	int incomingChars  = 0;
-    char rect[19] = ""; 
-    int collecting = 0;
-	while(looping || incomplete){
-		//----- CHECK FOR ANY RX BYTES -----
-		if (uart0_filestream != -1)
-		{
-			// Read up to 255 characters from the port if they are there
-			char rx_buffer[256];
-			int rx_length = read(uart0_filestream, (void*)rx_buffer, 255);		//Filestream, buffer to store in, number of bytes to read (max)
-			if (rx_length < 0)
-			{
-				//An error occured (will occur if there are no bytes)
-			}
-			else if (rx_length == 0)
-			{
-				//No data waiting
-			}
-			else
-			{
-				rx_buffer[rx_length] = '\0';
-                if(strstr(rx_buffer, "*") != NULL) {
-				    //printf("end : %s\n", rx_buffer);
-                    collecting = 0;
-                }
-                if(collecting){
-				    incomingChars += rx_length;
-                    strcat(rect, rx_buffer);
-                }
-                if(strstr(rx_buffer, "#") != NULL) {
-				    //printf("start : %s\n", rx_buffer);
-                    collecting = 1;
-                }
-				//printf("%i bytes read : %s\n", rx_length, rx_buffer);
-				looping = 0;
-				if (incomingChars >=19) {
-				    incomplete = 0;
-                    strncpy(buf, rect, 19);
-                    return buf;
-				}
-			}
-		}else{
-            looping = 0;
-			incomplete = 0;
-        }
-	}
-    printf("----------------\n");
-}	
 
 void setUp(){
     
@@ -279,6 +202,14 @@ void setUp(){
     pinMode(LIMIT4, INPUT);
     pinMode(LIMIT5, INPUT);
 
+    //FACE DETECTION
+    pinMode(FACE, INPUT);
+    pullUpDnControl(FACE, PUD_UP);
+    pinMode(FACE_TRACK_1, INPUT);
+    pullUpDnControl(FACE_TRACK_1, PUD_DOWN);
+    pinMode(FACE_TRACK_2, INPUT);
+    pullUpDnControl(FACE_TRACK_2, PUD_DOWN);
+
     //pull up
     pullUpDnControl(LIMIT1, PUD_UP);
     pullUpDnControl(LIMIT2, PUD_UP);
@@ -325,7 +256,6 @@ void setUp(){
     digitalWrite(AXIS3_MOTOR_DIR, dir_axis3);
     digitalWrite(AXIS4_MOTOR_DIR, dir_axis4);
     digitalWrite(AXIS5_MOTOR_DIR, dir_axis5);
-	setupSerial();
 }
 
 void sync_bot(){
@@ -542,10 +472,18 @@ int speed(int total_steps, int steps_left){
         }
         BOT->delay += SPEED->decrement;
     }
-    //if(step%100 == 0){
-        //printf("delay %f state %i step %i \n", BOT->delay, state, step);
-    //}
+    if(step%100 == 0){
+        printf("delay %f state %i step %i \n", BOT->delay, state, step);
+    }
     pstate = state;
+}
+
+int stop(int total_steps, int steps_left){
+    BOT->delay += SPEED->f;
+    if(BOT->delay > SPEED->max_delay){
+        BOT->delay = SPEED->max_delay;
+    }
+    printf("stopping d %f  \n", BOT->delay);
 }
 
 int max(int a, int b, int c, int d, int e){
@@ -557,10 +495,83 @@ int max(int a, int b, int c, int d, int e){
     return l;
 }
 
+
 void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int numsteps5){
+    int exit_easing = 0;
+    int _face_state = _digitalRead(FACE);
+    int face_loop_counter = 0;
+    while (_face_state == HIGH){
+        rt_task_wait_period(NULL);
+        _face_state = _digitalRead(FACE);
+            
+        digitalWrite(AXIS1_MOTOR_PULSE, HIGH);
+
+        int _face_track_state_1 = _digitalRead(FACE_TRACK_1);
+        int _face_track_state_2 = _digitalRead(FACE_TRACK_2);
+    
+        if(face_loop_counter%100 == 0){
+            // printf("Track state 1 %i\n", _face_track_state_1);
+            // printf("Track state 2 %i\n", _face_track_state_2);
+        }
+        
+        int target_axis_5 = (float)BOT->steps_a1 * -0.447368 - 7500.0;
+        printf(">> :  %i : %i\n", BOT->steps_a5, target_axis_5);
+
+        while (target_axis_5 != BOT->steps_a5){
+            printf("steps axis 5 :  %i : %i\n", BOT->steps_a5, target_axis_5);
+            digitalWrite(AXIS5_MOTOR_PULSE, HIGH);
+            if(target_axis_5 > BOT->steps_a5){
+                BOT->steps_a5 ++;
+                digitalWrite(AXIS5_MOTOR_DIR, CW);
+                BOT->dir_a5 = CW;
+            }else if(target_axis_5 < BOT->steps_a5){
+                BOT->steps_a5 --;
+                digitalWrite(AXIS5_MOTOR_DIR, CCW);
+                BOT->dir_a5 = CCW;
+            }        
+            rt_task_sleep(2000);
+            digitalWrite(AXIS5_MOTOR_PULSE, LOW);
+        }
+
+        if(_face_track_state_1 == HIGH){
+            rt_task_set_periodic(&sync_task, TM_NOW, 1000000);
+            continue;
+        }
+
+        if(_face_track_state_2 == LOW){
+            if(BOT->steps_a1 > 19000){
+                rt_task_set_periodic(&sync_task, TM_NOW, 1000000);
+                continue;
+            }
+            BOT->steps_a1 ++;
+            digitalWrite(AXIS1_MOTOR_DIR, CW);
+            BOT->dir_a1 = CW;
+        }else{
+            if(BOT->steps_a1 < -19000){
+                rt_task_set_periodic(&sync_task, TM_NOW, 1000000);
+                continue;
+            }
+            BOT->steps_a1 --;
+            digitalWrite(AXIS1_MOTOR_DIR, CCW);
+            BOT->dir_a1 = CCW;
+        }
+
+
+        face_loop_counter ++;
+        rt_task_sleep(2000);
+        digitalWrite(AXIS1_MOTOR_PULSE, LOW);
+        rt_task_set_periodic(&sync_task, TM_NOW, 1000000);
+    }
+    numsteps1 = abs(BOT->target_a1 - BOT->steps_a1);
+    numsteps2 = abs(BOT->target_a2 - BOT->steps_a2);
+    numsteps3 = abs(BOT->target_a3 - BOT->steps_a3);
+    numsteps4 = abs(BOT->target_a4 - BOT->steps_a4);
+    numsteps5 = abs(BOT->target_a5 - BOT->steps_a5);
+
     int done = 0;
     int longest = max(numsteps1, numsteps2, numsteps3, numsteps4, numsteps5);
-    if(longest < (SPEED->slope*2)){
+    printf("longest %i \n",longest);
+	if(longest < (SPEED->slope*2)){
         SPEED->slope = longest / 2.0; 
         SPEED->min_delay = SPEED->max_delay - SPEED->slope * (SPEED->speed_delta / longest);
         SPEED->speed_delta = SPEED->max_delay - SPEED->min_delay;
@@ -568,7 +579,7 @@ void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int nu
         SPEED->f = SPEED->speed_delta / SPEED->slope;
         SPEED->a = SPEED->f*2.0 / SPEED->half_slope;
     }
-    // printf("slope %i \n", slope);
+
     int c1 = 0, c2 = 0, c3 = 0, c4 = 0, c5 = 0;
     int counter = 0;
     double f1 = (float)longest/numsteps1;
@@ -576,35 +587,101 @@ void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int nu
     double f3 = (float)longest/numsteps3;
     double f4 = (float)longest/numsteps4;
     double f5 = (float)longest/numsteps5;
+    
+    if(BOT->target_a1 < BOT->steps_a1){
+        digitalWrite(AXIS1_MOTOR_DIR, CCW);
+        BOT->dir_a1 = CCW;
+    }else{
+        digitalWrite(AXIS1_MOTOR_DIR, CW);
+        BOT->dir_a1 = CW;
+    }
+    if(BOT->target_a5 < BOT->steps_a5){
+        digitalWrite(AXIS5_MOTOR_DIR, CCW);
+        BOT->dir_a5 = CCW;
+    }else{
+        digitalWrite(AXIS5_MOTOR_DIR, CW);
+        BOT->dir_a5 = CW;
+    }
+
     while(counter < longest){
+       
+        int face_state = _digitalRead(FACE);
+        if (face_state == HIGH && exit_easing == 0){
+            printf("has face delay %f\n", BOT->delay);
+            printf("has face %i\n", face_state);
+            int new_slope = (int)(SPEED->max_delay - BOT->delay)/SPEED->f;
+            longest = counter + new_slope;
+            SPEED->slope = new_slope;
+            SPEED->half_slope = (int)(new_slope/2.0);
+            SPEED->speed_delta = SPEED->max_delay - BOT->delay;
+            SPEED->f = SPEED->speed_delta / SPEED->slope;
+            SPEED->a = SPEED->f*2.0 / SPEED->half_slope;
+            printf("new slope %i\n", new_slope);
+            exit_easing = 1;
+        }
+
         rt_task_wait_period(NULL);
-        speed(longest, longest - counter);
+        if(face_state == HIGH){
+            //stop(longest, longest - counter);
+            speed(longest, longest - counter);
+            printf("stopping delay %f\n", BOT->delay);
+        }else{
+            speed(longest, longest - counter);
+        }
         if(fmod(counter, f1) < 1.0  && c1 < numsteps1){
             digitalWrite(AXIS1_MOTOR_PULSE, HIGH);
             c1 ++;
+            if(BOT->dir_a1 == CW){
+                BOT->steps_a1 ++;
+            }else{
+                BOT->steps_a1 --;
+            }
         } 
         if(fmod(counter, f2) < 1.0  && c2 < numsteps2){
             digitalWrite(AXIS2_MOTOR_PULSE, HIGH);
             c2 ++;
+            if(BOT->dir_a2 == CW){
+                BOT->steps_a2 ++;
+            }else{
+                BOT->steps_a2 --;
+            }
         } 
         if(fmod(counter, f3) < 1.0  && c3 < numsteps3){
             digitalWrite(AXIS3_MOTOR_PULSE, HIGH);
             c3 ++;
+            if(BOT->dir_a3 == CW){
+                BOT->steps_a3 ++;
+            }else{
+                BOT->steps_a3 --;
+            }
         } 
         if(fmod(counter, f4) < 1.0  && c4 < numsteps4){
             digitalWrite(AXIS4_MOTOR_PULSE, HIGH);
             c4 ++;
+            if(BOT->dir_a4 == CW){
+                BOT->steps_a4 ++;
+            }else{
+                BOT->steps_a4 --;
+            }
         } 
         if(fmod(counter, f5) < 1.0  && c5 < numsteps5){
             digitalWrite(AXIS5_MOTOR_PULSE, HIGH);
             c5 ++;
+            if(BOT->dir_a5 == CW){
+                BOT->steps_a5 ++;
+            }else{
+                BOT->steps_a5 --;
+            }
         } 
         rt_task_sleep(2000);
+        
         digitalWrite(AXIS1_MOTOR_PULSE, LOW);
         digitalWrite(AXIS2_MOTOR_PULSE, LOW);
         digitalWrite(AXIS3_MOTOR_PULSE, LOW);
         digitalWrite(AXIS4_MOTOR_PULSE, LOW);
         digitalWrite(AXIS5_MOTOR_PULSE, LOW);
+
+
         rt_task_set_periodic(&sync_task, TM_NOW, BOT->delay);
         counter ++;
     }
@@ -613,6 +690,13 @@ void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int nu
 
 int move_to(int steps1, int steps2, int steps3, int steps4, int steps5){
     // printf("move to %i %i %i %i %i\n", steps1, steps2, steps3, steps4, steps5);
+
+    BOT->target_a1 = steps1;
+    BOT->target_a2 = steps2;
+    BOT->target_a3 = steps3;
+    BOT->target_a4 = steps4;
+    BOT->target_a5 = steps5;
+
     int steps_to_move_a1 = abs(steps1 - BOT->steps_a1);
     int steps_to_move_a2 = abs(steps2 - BOT->steps_a2);
     int steps_to_move_a3 = abs(steps3 - BOT->steps_a3);
@@ -620,34 +704,39 @@ int move_to(int steps1, int steps2, int steps3, int steps4, int steps5){
     int steps_to_move_a5 = abs(steps5 - BOT->steps_a5);
     if(steps1 < BOT->steps_a1){
         digitalWrite(AXIS1_MOTOR_DIR, CCW);
+        BOT->dir_a1 = CCW;
     }else{
         digitalWrite(AXIS1_MOTOR_DIR, CW);
+        BOT->dir_a1 = CW;
     }
     if(steps2 < BOT->steps_a2){
         digitalWrite(AXIS2_MOTOR_DIR, CCW);
+        BOT->dir_a2 = CCW;
     }else{
         digitalWrite(AXIS2_MOTOR_DIR, CW);
+        BOT->dir_a2 = CW;
     }
     if(steps3 < BOT->steps_a3){
         digitalWrite(AXIS3_MOTOR_DIR, CCW);
+        BOT->dir_a3 = CCW;
     }else{
         digitalWrite(AXIS3_MOTOR_DIR, CW);
+        BOT->dir_a3 = CW;
     }
     if(steps4 < BOT->steps_a4){
         digitalWrite(AXIS4_MOTOR_DIR, CCW);
+        BOT->dir_a4 = CCW;
     }else{
         digitalWrite(AXIS4_MOTOR_DIR, CW);
+        BOT->dir_a4 = CW;
     }
     if(steps5 < BOT->steps_a5){
         digitalWrite(AXIS5_MOTOR_DIR, CCW);
+        BOT->dir_a5 = CCW;
     }else{
         digitalWrite(AXIS5_MOTOR_DIR, CW);
+        BOT->dir_a5 = CW;
     }
-    BOT->steps_a1 = steps1;
-    BOT->steps_a2 = steps2;
-    BOT->steps_a3 = steps3;
-    BOT->steps_a4 = steps4;
-    BOT->steps_a5 = steps5;
     move_bot(steps_to_move_a1, steps_to_move_a2, steps_to_move_a3, steps_to_move_a4, steps_to_move_a5);
 }
 
@@ -667,15 +756,6 @@ int run(char *script){
 
 int __home(lua_State *L){
     sync_bot();
-}
-
-int __read_face_rect(lua_State *L){
-    char rect[20];
-    memset(rect,0,20);
-    runReadLoop(rect);
-    printf("rect %s \n", rect);
-    lua_pushstring(L, rect);
-    return 1;
 }
 
 int __move_to(lua_State *L){
@@ -732,7 +812,6 @@ void loadLua(char *script){
     lua_register(L,"move_to",__move_to);
     lua_register(L,"home",__home);
     lua_register(L,"set_speed",__set_speed);
-    lua_register(L,"get_face_rect",__read_face_rect);
     lua_register(L,"set_default_speed",__set_default_speed);
 
     if (luaL_loadfile(L, script)){
