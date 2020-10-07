@@ -37,11 +37,20 @@ import re
 import svgwrite
 import time
 import serial
+from periphery import GPIO
 
 ser = None
 nullframe_appearance = 0
-averages_x = []
-lastframe = '#0000,0000,0000,0000*'
+averages = []
+gpio_out = GPIO(73, "out") # face detected no/yes
+gpio_lr  = GPIO(138, "out") # moveleft /right
+gpio_ud  = GPIO(140, "out") # dont move right nor left
+gpio_out.write(False)
+gpio_lr.write(False)
+gpio_ud.write(False)
+centered = False 
+hysterys = 0
+centerpoint = 0,0
 def init():
     global ser
     ser = serial.Serial(
@@ -73,6 +82,7 @@ def shadow_text(dwg, x, y, text, font_size=20):
 
 def generate_svg(src_size, inference_size, inference_box, objs, labels, text_lines):
     dwg = svgwrite.Drawing('', size=src_size)
+    dwg.add(dwg.rect(insert=(1920/2 -120,0), size=(240,1280), fill='none', stroke='grey', stroke_width='2'))
     src_w, src_h = src_size
     inf_w, inf_h = inference_size
     box_x, box_y, box_w, box_h = inference_box
@@ -81,13 +91,19 @@ def generate_svg(src_size, inference_size, inference_box, objs, labels, text_lin
     largest_height = 0
     largest_x = 0
     largest_y = 0
-    global nullframe_appearance, averages_x, lastframe
+    center_x = 0
+    center_y = 0
+    global nullframe_appearance, averages, hysterys, centered, centerpoint
     # for y, line in enumerate(text_lines, start=1):
     #     shadow_text(dwg, 10, y*20, line)
     if len(objs) == 0:
         nullframe_appearance += 1
+        gpio_out.write(False)
+        # print('face not detected')
     else:
         nullframe_appearance = 0
+        gpio_out.write(True)
+        # print('face detected')
     for obj in objs:
         x0, y0, x1, y1 = list(obj.bbox)
         # Relative coordinates.
@@ -104,38 +120,56 @@ def generate_svg(src_size, inference_size, inference_box, objs, labels, text_lin
         # dwg.add(dwg.rect(insert=(x,y), size=(w, h),
         #                 fill='none', stroke='grey', stroke_width='2'))
         #dwg.add(dwg.rect(insert=(x,y+int(h/3)), size=(w,int(h/7)),fill='black',stroke='black',stroke_width='2'))
+        # largest face storing xvalue for averaging
         if w > largest_width:
             largest_width = w
             largest_height = h
             largest_x = x
             largest_y = y
-            averages_x.append(largest_x)
+            center_x = largest_x + int(float(largest_width)/2.0)
+            center_y = largest_y + int(float(largest_height)/2.0)
+            averages.append((center_x, center_y))
+            averages = averages[-20:]
+            centerpoint = calc_average(averages)
+        dwg.add(dwg.circle( center=centerpoint, r=5, fill='red')) 
         # print(output_frame.encode('utf-8'))
 
-    output_frame = "#%04d,%04d,%04d,%04d*"%(largest_x,largest_y,largest_width,largest_height)
-    # print(output_frame)
+    if centerpoint[0] > (1920/2):
+        gpio_lr.write(True)
+    else:
+        gpio_lr.write(False)
+    delta = abs((1920/2) - centerpoint[0])
+    if delta > (20 + hysterys):
+        # face off center
+        centered = False
+        hysterys = 0
+        gpio_ud.write(False) # start moving
+    else:
+        # face in center, enlarge deadzone to prevent jitter
+        hysterys = 100
+        centered = True
+        gpio_ud.write(True) # no move
     dwg.add(dwg.rect(insert=(largest_x,largest_y), size=(largest_width,int(largest_height)),fill='none',stroke='white',stroke_width='4'))
     if nullframe_appearance > 10 or nullframe_appearance == 0:
         if nullframe_appearance > 10:
             averages_x = []
         nullframe_appearance = 0
-        # print(output_frame)
-        if abs(calc_average(averages_x[-10:]) - largest_x) < 50:        
-            ser.write(output_frame.encode('utf-8'))
-            print (output_frame)
-            lastframe = output_frame
-        else: 
-            ser.write(lastframe.encode('utf-8'))
-            print(lastframe)
     return dwg.tostring()
 
 def calc_average(data):
     if len(data) == 0:
-        return 0
+        return (0,0)
     total = 0
-    for ele in data:
-        total += ele
-    return round(total/len(data))
+    x = 0
+    y = 0
+    for _x,_y in data:
+        x += _x
+        y += _y
+    avg_x = round(x/len(data))
+    avg_y = round(y/len(data))
+    # print (avg)
+    return avg_x,avg_y
+
 
 class BBox(collections.namedtuple('BBox', ['xmin', 'ymin', 'xmax', 'ymax'])):
     """Bounding box.
