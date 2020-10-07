@@ -62,22 +62,44 @@ head_rotations = {0, -15000}
 base_positions_index = 1
 head_rotation_index = 1
 zoom = -8000
-move_to(base_rotation,zoom,0,-1500,-7500)
+pivot = 1800
+move_to(base_rotation,zoom,0,-pivot,-7500)
 while true
     do
-    set_speed(4000, 13000*20, 200000*20) -- slope min max
+    set_speed(2000, 13000*10, 200000*20) -- slope min max
+    move_to(-19000,zoom,0,-pivot,1000)
+
+    set_speed(2000, 13000*10, 200000*20) -- slope min max
+    move_to(-19000,5000,0,-pivot,1000)
+    
+    set_speed(2000, 13000*10, 200000*20) -- slope min max
+    move_to(-19000,5000,9000,-pivot,1000)
+
+    set_speed(2000, 13000*10, 200000*20) -- slope min max
+    move_to(-19000,5000,-4000,-pivot,1000)
+
+    set_speed(2000, 13000*10, 200000*20) -- slope min max
+    move_to(19000,zoom,0,-pivot,-16000)
+
+    set_speed(2000, 13000*10, 200000*20) -- slope min max
+    move_to(19000,0,0,-pivot,-16000)
+end
+--[[
+while true
+    do
+    set_speed(2000, 13000*10, 200000*20) -- slope min max
     move_to(-20000,zoom,0,-1500,-7500)
-    set_speed(4000, 13000*20, 200000*20) -- slope min max
+    set_speed(2000, 13000*10, 200000*20) -- slope min max
     move_to(30000,zoom,0,-1500,-7500)
-    set_speed(4000, 13000*20, 200000*20) -- slope min max
+    set_speed(2000, 13000*10, 200000*20) -- slope min max
     move_to(32000,0,0,-1500,-7500)
-    set_speed(4000, 13000*20, 200000*20) -- slope min max
+    set_speed(2000, 13000*10, 200000*20) -- slope min max
     move_to(32000,0,3000,-1500,-7500)
-    set_speed(4000, 13000*20, 200000*20) -- slope min max
+    set_speed(2000, 13000*10, 200000*20) -- slope min max
     move_to(20000,-8000,0,-1500,1000)
-    set_speed(4000, 13000*20, 200000*20) -- slope min max
+    set_speed(2000, 13000*10, 200000*20) -- slope min max
     move_to(20000,-8000,0,-1500,-7500)
-    set_speed(4000, 13000*20, 200000*20) -- slope min max
+    set_speed(2000, 13000*10, 200000*20) -- slope min max
     move_to(20000,-8000,0,-1500,-16000)
 end
-
+]]--

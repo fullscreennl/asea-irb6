@@ -73,6 +73,8 @@
 #define LIMIT5 25              // io26
 
 #define FACE 24                // io19             
+#define FACE_TRACK_1 15                   
+#define FACE_TRACK_2 16             
 
 #define SYNC_OVERSHOOT_STEPS 2000
 
@@ -95,6 +97,11 @@ int looping = 1;
 RT_TASK sync_task;
 
 typedef struct AseaBotState{
+    int target_a1;
+    int target_a2;
+    int target_a3;
+    int target_a4;
+    int target_a5;
     int steps_a1;
     int steps_a2;
     int steps_a3;
@@ -198,6 +205,10 @@ void setUp(){
     //FACE DETECTION
     pinMode(FACE, INPUT);
     pullUpDnControl(FACE, PUD_UP);
+    pinMode(FACE_TRACK_1, INPUT);
+    pullUpDnControl(FACE_TRACK_1, PUD_DOWN);
+    pinMode(FACE_TRACK_2, INPUT);
+    pullUpDnControl(FACE_TRACK_2, PUD_DOWN);
 
     //pull up
     pullUpDnControl(LIMIT1, PUD_UP);
@@ -472,7 +483,7 @@ int stop(int total_steps, int steps_left){
     if(BOT->delay > SPEED->max_delay){
         BOT->delay = SPEED->max_delay;
     }
-    printf("stopping delay %f  \n", BOT->delay);
+    printf("stopping d %f  \n", BOT->delay);
 }
 
 int max(int a, int b, int c, int d, int e){
@@ -486,9 +497,79 @@ int max(int a, int b, int c, int d, int e){
 
 
 void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int numsteps5){
+    int exit_easing = 0;
+    int _face_state = _digitalRead(FACE);
+    int face_loop_counter = 0;
+    while (_face_state == HIGH){
+        rt_task_wait_period(NULL);
+        _face_state = _digitalRead(FACE);
+            
+        digitalWrite(AXIS1_MOTOR_PULSE, HIGH);
+
+        int _face_track_state_1 = _digitalRead(FACE_TRACK_1);
+        int _face_track_state_2 = _digitalRead(FACE_TRACK_2);
+    
+        if(face_loop_counter%100 == 0){
+            // printf("Track state 1 %i\n", _face_track_state_1);
+            // printf("Track state 2 %i\n", _face_track_state_2);
+        }
+        
+        int target_axis_5 = (float)BOT->steps_a1 * -0.447368 - 7500.0;
+        printf(">> :  %i : %i\n", BOT->steps_a5, target_axis_5);
+
+        while (target_axis_5 != BOT->steps_a5){
+            printf("steps axis 5 :  %i : %i\n", BOT->steps_a5, target_axis_5);
+            digitalWrite(AXIS5_MOTOR_PULSE, HIGH);
+            if(target_axis_5 > BOT->steps_a5){
+                BOT->steps_a5 ++;
+                digitalWrite(AXIS5_MOTOR_DIR, CW);
+                BOT->dir_a5 = CW;
+            }else if(target_axis_5 < BOT->steps_a5){
+                BOT->steps_a5 --;
+                digitalWrite(AXIS5_MOTOR_DIR, CCW);
+                BOT->dir_a5 = CCW;
+            }        
+            rt_task_sleep(2000);
+            digitalWrite(AXIS5_MOTOR_PULSE, LOW);
+        }
+
+        if(_face_track_state_1 == HIGH){
+            rt_task_set_periodic(&sync_task, TM_NOW, 1000000);
+            continue;
+        }
+
+        if(_face_track_state_2 == LOW){
+            if(BOT->steps_a1 > 19000){
+                rt_task_set_periodic(&sync_task, TM_NOW, 1000000);
+                continue;
+            }
+            BOT->steps_a1 ++;
+            digitalWrite(AXIS1_MOTOR_DIR, CW);
+            BOT->dir_a1 = CW;
+        }else{
+            if(BOT->steps_a1 < -19000){
+                rt_task_set_periodic(&sync_task, TM_NOW, 1000000);
+                continue;
+            }
+            BOT->steps_a1 --;
+            digitalWrite(AXIS1_MOTOR_DIR, CCW);
+            BOT->dir_a1 = CCW;
+        }
+
+
+        face_loop_counter ++;
+        rt_task_sleep(2000);
+        digitalWrite(AXIS1_MOTOR_PULSE, LOW);
+        rt_task_set_periodic(&sync_task, TM_NOW, 1000000);
+    }
+    numsteps1 = abs(BOT->target_a1 - BOT->steps_a1);
+    numsteps2 = abs(BOT->target_a2 - BOT->steps_a2);
+    numsteps3 = abs(BOT->target_a3 - BOT->steps_a3);
+    numsteps4 = abs(BOT->target_a4 - BOT->steps_a4);
+    numsteps5 = abs(BOT->target_a5 - BOT->steps_a5);
+
     int done = 0;
     int longest = max(numsteps1, numsteps2, numsteps3, numsteps4, numsteps5);
-    int exit_easing = 0;
     printf("longest %i \n",longest);
 	if(longest < (SPEED->slope*2)){
         SPEED->slope = longest / 2.0; 
@@ -506,28 +587,44 @@ void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int nu
     double f3 = (float)longest/numsteps3;
     double f4 = (float)longest/numsteps4;
     double f5 = (float)longest/numsteps5;
-    int _face_state = _digitalRead(FACE);
-    while (_face_state == HIGH){
-        rt_task_wait_period(NULL);
-        _face_state = _digitalRead(FACE);
-        rt_task_sleep(2000);
-        rt_task_set_periodic(&sync_task, TM_NOW, BOT->delay);
+    
+    if(BOT->target_a1 < BOT->steps_a1){
+        digitalWrite(AXIS1_MOTOR_DIR, CCW);
+        BOT->dir_a1 = CCW;
+    }else{
+        digitalWrite(AXIS1_MOTOR_DIR, CW);
+        BOT->dir_a1 = CW;
     }
+    if(BOT->target_a5 < BOT->steps_a5){
+        digitalWrite(AXIS5_MOTOR_DIR, CCW);
+        BOT->dir_a5 = CCW;
+    }else{
+        digitalWrite(AXIS5_MOTOR_DIR, CW);
+        BOT->dir_a5 = CW;
+    }
+
     while(counter < longest){
        
         int face_state = _digitalRead(FACE);
         if (face_state == HIGH && exit_easing == 0){
+            printf("has face delay %f\n", BOT->delay);
             printf("has face %i\n", face_state);
             int new_slope = (int)(SPEED->max_delay - BOT->delay)/SPEED->f;
             longest = counter + new_slope;
+            SPEED->slope = new_slope;
             SPEED->half_slope = (int)(new_slope/2.0);
+            SPEED->speed_delta = SPEED->max_delay - BOT->delay;
+            SPEED->f = SPEED->speed_delta / SPEED->slope;
+            SPEED->a = SPEED->f*2.0 / SPEED->half_slope;
             printf("new slope %i\n", new_slope);
             exit_easing = 1;
         }
 
         rt_task_wait_period(NULL);
         if(face_state == HIGH){
-            stop(longest, longest - counter);
+            //stop(longest, longest - counter);
+            speed(longest, longest - counter);
+            printf("stopping delay %f\n", BOT->delay);
         }else{
             speed(longest, longest - counter);
         }
@@ -593,6 +690,13 @@ void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int nu
 
 int move_to(int steps1, int steps2, int steps3, int steps4, int steps5){
     // printf("move to %i %i %i %i %i\n", steps1, steps2, steps3, steps4, steps5);
+
+    BOT->target_a1 = steps1;
+    BOT->target_a2 = steps2;
+    BOT->target_a3 = steps3;
+    BOT->target_a4 = steps4;
+    BOT->target_a5 = steps5;
+
     int steps_to_move_a1 = abs(steps1 - BOT->steps_a1);
     int steps_to_move_a2 = abs(steps2 - BOT->steps_a2);
     int steps_to_move_a3 = abs(steps3 - BOT->steps_a3);
