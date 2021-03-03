@@ -42,15 +42,65 @@ from periphery import GPIO
 ser = None
 nullframe_appearance = 0
 averages = []
-gpio_out = GPIO(73, "out") # face detected no/yes
-gpio_lr  = GPIO(138, "out") # moveleft /right
-gpio_ud  = GPIO(140, "out") # dont move right nor left
-gpio_out.write(False)
-gpio_lr.write(False)
-gpio_ud.write(False)
+# gpio_out = GPIO(73, "out") # face detected no/yes
+# gpio_lr  = GPIO(138, "out") # moveleft /right
+# gpio_ud  = GPIO(140, "out") # dont move right nor left
+# gpio_out.write(False)
+# gpio_lr.write(False)
+# gpio_ud.write(False)
+
+# state table
+"""
+0 NO FACE
+1 NOMOVE NOMOVE
+2 NOMOVE UP
+3 NOMOVE DOWN
+4 LEFT NOMOVE
+5 LEFT UP
+6 LEFT DOWN
+7 RIGHT NOMOVE
+8 RIGHT UP
+9 RIGHT DOWN
+"""
+class Constants:
+    NO_FACE = 0
+    X_X = 1
+    X_U = 2
+    X_D = 3
+    L_X = 4
+    L_U = 5
+    L_D = 6
+    R_X = 7
+    R_U = 8
+    R_D = 9
+
+direction_names = ['NO_FACE','X_X','X_U','X_D','L_X','L_U','L_D','R_X','R_U','R_D']
+
 centered = False 
-hysterys = 0
+
+gpio_line3 = GPIO(73, "out")
+gpio_line1 = GPIO(138, "out")
+gpio_line2 = GPIO(140, "out")
+gpio_line0 = GPIO(6, "out") 
+gpio_line0.write(False)
+gpio_line1.write(False)
+gpio_line2.write(False)
+gpio_line3.write(False)
+current_state = 0  # NO FACE
+hysterysX = 0
+hysterysY = 0
 centerpoint = 0,0
+gpios = [gpio_line0,gpio_line1,gpio_line2,gpio_line3]
+        
+def dec2bin(n):
+    return bin(n).replace("0b", "").zfill(4)  
+
+def writeIO(t):
+    global gpios
+    binString = dec2bin(t)
+    for count, a in enumerate(binString):
+        gpios[count].write(bool(int(a)))
+
 def init():
     global ser
     ser = serial.Serial(
@@ -93,16 +143,19 @@ def generate_svg(src_size, inference_size, inference_box, objs, labels, text_lin
     largest_y = 0
     center_x = 0
     center_y = 0
-    global nullframe_appearance, averages, hysterys, centered, centerpoint
+    global nullframe_appearance, averages, hysterysX, hysterysY, centeredX, centerpoint, current_state
     # for y, line in enumerate(text_lines, start=1):
     #     shadow_text(dwg, 10, y*20, line)
     if len(objs) == 0:
         nullframe_appearance += 1
-        gpio_out.write(False)
+        # gpio_out.write(False)
+        current_state = Constants.NO_FACE # NO FACE
+        writeIO(current_state)
         # print('face not detected')
     else:
         nullframe_appearance = 0
-        gpio_out.write(True)
+        # gpio_out.write(True)
+        current_state = Constants.X_X # NO MOVE NO MOVE
         # print('face detected')
     for obj in objs:
         x0, y0, x1, y1 = list(obj.bbox)
@@ -134,26 +187,70 @@ def generate_svg(src_size, inference_size, inference_box, objs, labels, text_lin
         dwg.add(dwg.circle( center=centerpoint, r=5, fill='red')) 
         # print(output_frame.encode('utf-8'))
 
-    if centerpoint[0] > (1920/2):
-        gpio_lr.write(True)
-    else:
-        gpio_lr.write(False)
-    delta = abs((1920/2) - centerpoint[0])
-    if delta > (20 + hysterys):
-        # face off center
-        centered = False
-        hysterys = 0
-        gpio_ud.write(False) # start moving
+    #if centerpoint[0] > (1920/2):
+        #gpio_lr.write(True)
+    #else:
+        #gpio_lr.write(False)
+    dwg.add(dwg.circle( center=(10,10), r=5, fill='green')) 
+    deltaX = abs((1920/2) - centerpoint[0])
+    deltaY = abs((1080/2) - centerpoint[1])
+    if current_state > 0 and (deltaX > (20 + hysterysX) or deltaY > (20 + hysterysY)):
+        # face off center 
+        if deltaX > (20 + hysterysX):
+            centeredX = False
+            hysterysX = 0
+            if centerpoint[0] > (1920/2):
+                # move left
+                if deltaY <= (20 + hysterysY):
+                    # dont move up or down
+                    hysterysY = 100
+                    current_state = Constants.L_X
+                elif centerpoint[1] > 1080/2:
+                    # move down to follow
+                    hysterysY = 0
+                    current_state = Constants.L_D
+                else:
+                   # move up
+                   hysterysY = 0
+                   current_state = Constants.L_U
+            else:
+                # move right
+                # gpio_ud.write(False) # start moving
+                if deltaY <= (20 + hysterysY):
+                    # dont move up or down
+                    hysterysY = 100
+                    current_state = Constants.R_X
+                elif centerpoint[1] > 1080/2:
+                    # move down
+                    current_state = Constants.R_D
+                    hysterysY = 0
+                else:
+                   # move up
+                   hysterysY = 0
+                   current_state = Constants.R_U
+        elif deltaY > (20 + hysterysY):
+            hysterysX = 100
+            hysterysY = 0
+            # up or down and no left or right movement 
+            if centerpoint[1] > 1080/2:
+                # move down
+                current_state = Constants.X_D
+            else:
+               # move up
+               current_state = Constants.X_U
     else:
         # face in center, enlarge deadzone to prevent jitter
-        hysterys = 100
-        centered = True
-        gpio_ud.write(True) # no move
+        hysterysY = 100
+        hysterysX = 100
+        centeredX = True
+        #gpio_ud.write(True) # no move
     dwg.add(dwg.rect(insert=(largest_x,largest_y), size=(largest_width,int(largest_height)),fill='none',stroke='white',stroke_width='4'))
     if nullframe_appearance > 10 or nullframe_appearance == 0:
         if nullframe_appearance > 10:
             averages_x = []
         nullframe_appearance = 0
+    # print('sending state', direction_names[current_state])    
+    writeIO(current_state)    
     return dwg.tostring()
 
 def calc_average(data):
@@ -214,14 +311,22 @@ def main():
     interpreter = common.make_interpreter(args.model)
     interpreter.allocate_tensors()
     labels = load_labels(args.labels)
-
+    global gpio_out, current_state
     w, h, _ = common.input_image_size(interpreter)
     inference_size = (w, h)
     # Average fps over last 30 frames.
     fps_counter  = common.avg_fps_counter(30)
-
+    counter = 0
     def user_callback(input_tensor, src_size, inference_box):
       nonlocal fps_counter
+      nonlocal counter
+      global gpio_out, current_state
+      counter += 1
+      if counter == 5000:
+          # gpio_out.write(False)
+          current_state = 0
+          writeIO(current_state)    
+          os._exit(1)
       start_time = time.monotonic()
       common.set_input(interpreter, input_tensor)
       interpreter.invoke()
