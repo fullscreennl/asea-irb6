@@ -61,7 +61,7 @@ base_positions = {0, 10000, -20000, 30000}
 head_rotations = {0, -15000}
 base_positions_index = 1
 head_rotation_index = 1
-zoom = -8000
+zoom = -7000
 pivot = 1800
 move_to(base_rotation,zoom,0,-pivot,-7500)
 while true

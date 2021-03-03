@@ -11,38 +11,34 @@
 #include <alchemy/task.h>
 #include <alchemy/timer.h>
 
-#include "lua-5.2.3/lua.h"
-#include "lua-5.2.3/lauxlib.h"
-#include "lua-5.2.3/lualib.h"
-
 /**
 
- +-----+-----+---------+------+---+---Pi 3B+-+---+------+---------+-----+-----+
- | BCM | wPi |   Name  | Mode | V | Physical | V | Mode | Name    | wPi | BCM |
- +-----+-----+---------+------+---+----++----+---+------+---------+-----+-----+
- |     |     |    3.3v |      |   |  1 || 2  |   |      | 5v      |     |     |
- |   2 |   8 |   SDA.1 |  OUT | 0 |  3 || 4  |   |      | 5v      |     |     |
- |   3 |   9 |   SCL.1 |  OUT | 0 |  5 || 6  |   |      | 0v      |     |     |
- |   4 |   7 | GPIO. 7 |  OUT | 0 |  7 || 8  | 0 | IN   | TxD     | 15  | 14  |
- |     |     |      0v |      |   |  9 || 10 | 1 | IN   | RxD     | 16  | 15  |
- |  17 |   0 | GPIO. 0 |  OUT | 1 | 11 || 12 | 0 | IN   | GPIO. 1 | 1   | 18  |
- |  27 |   2 | GPIO. 2 |  OUT | 0 | 13 || 14 |   |      | 0v      |     |     |
- |  22 |   3 | GPIO. 3 |  OUT | 0 | 15 || 16 | 0 | IN   | GPIO. 4 | 4   | 23  |
- |     |     |    3.3v |      |   | 17 || 18 | 0 | IN   | GPIO. 5 | 5   | 24  |
- |  10 |  12 |    MOSI |  OUT | 0 | 19 || 20 |   |      | 0v      |     |     |
- |   9 |  13 |    MISO |  OUT | 0 | 21 || 22 | 0 | IN   | GPIO. 6 | 6   | 25  |
- |  11 |  14 |    SCLK |   IN | 0 | 23 || 24 | 1 | IN   | CE0     | 10  | 8   |
- |     |     |      0v |      |   | 25 || 26 | 1 | IN   | CE1     | 11  | 7   |
- |   0 |  30 |   SDA.0 |   IN | 1 | 27 || 28 | 1 | IN   | SCL.0   | 31  | 1   |
- |   5 |  21 | GPIO.21 |   IN | 1 | 29 || 30 |   |      | 0v      |     |     |
- |   6 |  22 | GPIO.22 |   IN | 1 | 31 || 32 | 0 | IN   | GPIO.26 | 26  | 12  |
- |  13 |  23 | GPIO.23 |   IN | 0 | 33 || 34 |   |      | 0v      |     |     |
- |  19 |  24 | GPIO.24 |   IN | 0 | 35 || 36 | 0 | IN   | GPIO.27 | 27  | 16  |
- |  26 |  25 | GPIO.25 |   IN | 0 | 37 || 38 | 0 | IN   | GPIO.28 | 28  | 20  |
- |     |     |      0v |      |   | 39 || 40 | 0 | IN   | GPIO.29 | 29  | 21  |
- +-----+-----+---------+------+---+----++----+---+------+---------+-----+-----+
- | BCM | wPi |   Name  | Mode | V | Physical | V | Mode | Name    | wPi | BCM |
- +-----+-----+---------+------+---+---Pi 3B+-+---+------+---------+-----+-----+
+  +-----+-----+---------+------+---+---Pi 3B+-+---+------+---------+-----+-----+
+  | BCM | wPi |   Name  | Mode | V | Physical | V | Mode | Name    | wPi | BCM |
+  +-----+-----+---------+------+---+----++----+---+------+---------+-----+-----+
+  |     |     |    3.3v |      |   |  1 || 2  |   |      | 5v      |     |     |
+  |   2 |   8 |   SDA.1 |  OUT | 0 |  3 || 4  |   |      | 5v      |     |     |
+  |   3 |   9 |   SCL.1 |  OUT | 0 |  5 || 6  |   |      | 0v      |     |     |
+  |   4 |   7 | GPIO. 7 |  OUT | 0 |  7 || 8  | 0 | IN   | TxD     | 15  | 14  |
+  |     |     |      0v |      |   |  9 || 10 | 1 | IN   | RxD     | 16  | 15  |
+  |  17 |   0 | GPIO. 0 |  OUT | 1 | 11 || 12 | 0 | IN   | GPIO. 1 | 1   | 18  |
+  |  27 |   2 | GPIO. 2 |  OUT | 0 | 13 || 14 |   |      | 0v      |     |     |
+  |  22 |   3 | GPIO. 3 |  OUT | 0 | 15 || 16 | 0 | IN   | GPIO. 4 | 4   | 23  |
+  |     |     |    3.3v |      |   | 17 || 18 | 0 | IN   | GPIO. 5 | 5   | 24  |
+  |  10 |  12 |    MOSI |  OUT | 0 | 19 || 20 |   |      | 0v      |     |     |
+  |   9 |  13 |    MISO |  OUT | 0 | 21 || 22 | 0 | IN   | GPIO. 6 | 6   | 25  |
+  |  11 |  14 |    SCLK |   IN | 0 | 23 || 24 | 1 | IN   | CE0     | 10  | 8   |
+  |     |     |      0v |      |   | 25 || 26 | 1 | IN   | CE1     | 11  | 7   |
+  |   0 |  30 |   SDA.0 |   IN | 1 | 27 || 28 | 1 | IN   | SCL.0   | 31  | 1   |
+  |   5 |  21 | GPIO.21 |   IN | 1 | 29 || 30 |   |      | 0v      |     |     |
+  |   6 |  22 | GPIO.22 |   IN | 1 | 31 || 32 | 0 | IN   | GPIO.26 | 26  | 12  |
+  |  13 |  23 | GPIO.23 |   IN | 0 | 33 || 34 |   |      | 0v      |     |     |
+  |  19 |  24 | GPIO.24 |   IN | 0 | 35 || 36 | 0 | IN   | GPIO.27 | 27  | 16  |
+  |  26 |  25 | GPIO.25 |   IN | 0 | 37 || 38 | 0 | IN   | GPIO.28 | 28  | 20  |
+  |     |     |      0v |      |   | 39 || 40 | 0 | IN   | GPIO.29 | 29  | 21  |
+  +-----+-----+---------+------+---+----++----+---+------+---------+-----+-----+
+  | BCM | wPi |   Name  | Mode | V | Physical | V | Mode | Name    | wPi | BCM |
+  +-----+-----+---------+------+---+---Pi 3B+-+---+------+---------+-----+-----+
 
 */
 
@@ -75,6 +71,7 @@
 #define FACE 24                // io19             
 #define FACE_TRACK_1 15                   
 #define FACE_TRACK_2 16             
+#define FACE_TRACK_3 27             
 
 #define SYNC_OVERSHOOT_STEPS 2000
 
@@ -89,6 +86,19 @@
 #define SPEED_DELTA (MOVE_MAX_DELAY - MOVE_MIN_DELAY) 
 #define START_SLOPE 45000
 #define INCREMENT (SPEED_DELTA / START_SLOPE)
+
+#define NO_FACE 0
+#define X_X 1 // centered in both dirs
+#define X_U 2 // horizontally centered move up
+#define X_D 3 // horizontally centered move down
+#define L_X 4 // vertically centered move left 
+#define L_U 5 // move left move up
+#define L_D 6 // move left move down
+#define R_X 7 // vertically centered move right
+#define R_U 8 // move right move up
+#define R_D 9 // move right move down
+
+
 
 int uart0_filestream = -1;
 const char * runReadLoop();
@@ -157,7 +167,7 @@ int _digitalRead(int input){
 }
 
 void setUp(){
-    
+
     SPEED = (SpeedState*) malloc(sizeof(SpeedState));
     SPEED->max_delay = MOVE_MAX_DELAY;
     SPEED->min_delay = MOVE_MIN_DELAY;
@@ -223,7 +233,7 @@ void setUp(){
     int limit_3_state = _digitalRead(LIMIT3);
     int limit_4_state = _digitalRead(LIMIT4);
     int limit_5_state = _digitalRead(LIMIT5);
- 
+
     //get direction to move to
     if (limit_1_state == HIGH) {
         dir_axis1 = CW;
@@ -258,7 +268,9 @@ void setUp(){
     digitalWrite(AXIS5_MOTOR_DIR, dir_axis5);
 }
 
+
 void sync_bot(){
+
     int homed = 0;
     int nearly_homed = 0;
 
@@ -275,7 +287,7 @@ void sync_bot(){
     int axis_5_homed = 0;
 
     int nearly_homed_count = 0;
-    
+
     //read state of switches
     int limit_1_state = _digitalRead(LIMIT1);
     int limit_2_state = _digitalRead(LIMIT2);
@@ -363,20 +375,20 @@ void sync_bot(){
         stepcounter ++;
         rt_task_set_periodic(&sync_task, TM_NOW, SYNC_DELAY);
     }
-  
+
     //read state of switches
     limit_1_state = _digitalRead(LIMIT1);
     limit_2_state = _digitalRead(LIMIT2);
     limit_3_state = _digitalRead(LIMIT3);
     limit_4_state = _digitalRead(LIMIT4);
     limit_5_state = _digitalRead(LIMIT5);
-    
+
     digitalWrite(AXIS1_MOTOR_DIR, axis_1_overshoot_dir?0:1);
     digitalWrite(AXIS2_MOTOR_DIR, axis_2_overshoot_dir?0:1);
     digitalWrite(AXIS3_MOTOR_DIR, axis_3_overshoot_dir?0:1);
     digitalWrite(AXIS4_MOTOR_DIR, axis_4_overshoot_dir?0:1);
     digitalWrite(AXIS5_MOTOR_DIR, axis_5_overshoot_dir?0:1);
-   
+
     int really_homed_count = 0;
 
     while (!homed){
@@ -427,11 +439,12 @@ void sync_bot(){
                 // printf(" %i %i %i %i %i \n", axis_1_homed, axis_2_homed, axis_3_homed, axis_4_homed, axis_5_homed);
                 printf("ASEA ROBOT AT YOUR SERVICE!\n");
                 homed = 1;
+                alarm(1);
             }
         }
         rt_task_set_periodic(&sync_task, TM_NOW, SYNC_DELAY);
     }
-    
+
     //read state of switches
     _digitalRead(LIMIT1);
     _digitalRead(LIMIT2);
@@ -439,6 +452,14 @@ void sync_bot(){
     _digitalRead(LIMIT4);
     _digitalRead(LIMIT5);
 
+}
+
+void home(){
+    rt_task_set_periodic(&sync_task, TM_NOW, BOT->delay);
+    rt_task_create(&sync_task, "sync-task", 0, 99, 0);
+    rt_task_start(&sync_task, &sync_bot, NULL);
+    pause();
+    rt_task_delete(&sync_task);
 }
 
 int pstate = 0;
@@ -462,7 +483,7 @@ int speed(int total_steps, int steps_left){
         }
         BOT->delay -= SPEED->increment;
         if(BOT->delay < SPEED->min_delay){
-           BOT->delay = SPEED->min_delay;
+            BOT->delay = SPEED->min_delay;
         }    
     }else if(state == 3){
         if(step < total_steps-SPEED->half_slope){
@@ -473,7 +494,7 @@ int speed(int total_steps, int steps_left){
         BOT->delay += SPEED->decrement;
     }
     if(step%100 == 0){
-        printf("delay %f state %i step %i \n", BOT->delay, state, step);
+        //printf("delay %f state %i step %i \n", BOT->delay, state, step);
     }
     pstate = state;
 }
@@ -483,7 +504,7 @@ int stop(int total_steps, int steps_left){
     if(BOT->delay > SPEED->max_delay){
         BOT->delay = SPEED->max_delay;
     }
-    printf("stopping d %f  \n", BOT->delay);
+    //printf("stopping d %f  \n", BOT->delay);
 }
 
 int max(int a, int b, int c, int d, int e){
@@ -495,19 +516,95 @@ int max(int a, int b, int c, int d, int e){
     return l;
 }
 
+int decode_state(){
+    int io_1 = _digitalRead(FACE);
+    int io_2 = _digitalRead(FACE_TRACK_1);
+    int io_3 = _digitalRead(FACE_TRACK_2);
+    int io_4 = _digitalRead(FACE_TRACK_3);
+    int result = io_1 | (io_2 << 1) | (io_3 << 2) | (io_4 << 3);
+    return result;
+}
+
+
+int can_move_lower_arm(int wanted_steps_lower_arm, int steps_upper_arm){
+    if(wanted_steps_lower_arm < -5500){
+        return 0;
+    }
+    if(wanted_steps_lower_arm > 10500){
+        return 0;
+    }
+
+    if(steps_upper_arm > 3500){
+        if(steps_upper_arm - wanted_steps_lower_arm < 9000){
+            return 1;
+        }else{
+            return 0;
+        }
+    }
+    
+    if(steps_upper_arm < 1500){
+        if(steps_upper_arm - wanted_steps_lower_arm > -9000){
+            return 1;
+        }else{
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
+int can_move_upper_arm(int wanted_steps_upper_arm, int steps_lower_arm){
+    if(wanted_steps_upper_arm < -8000){
+        return 0;
+    }
+    if(wanted_steps_upper_arm > 8000){
+        return 0;
+    }
+
+    if(steps_lower_arm > 1000){
+        if(steps_lower_arm - wanted_steps_upper_arm < 9000){
+            return 1;
+        }else{
+            return 0;
+        }
+    }
+    
+    if(steps_lower_arm < -1000){
+        if(steps_lower_arm - wanted_steps_upper_arm > -9000){
+            return 1;
+        }else{
+            return 0;
+        }
+    }
+
+    return 1;
+}
 
 void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int numsteps5){
     int exit_easing = 0;
-    int _face_state = _digitalRead(FACE);
+    int _face_state = decode_state();
     int face_loop_counter = 0;
-    while (_face_state == HIGH){
+    int current_face_track_state = LOW;
+    int track_speed = 700000;
+    while (_face_state > NO_FACE){
         rt_task_wait_period(NULL);
         _face_state = _digitalRead(FACE);
             
         digitalWrite(AXIS1_MOTOR_PULSE, HIGH);
+        digitalWrite(AXIS3_MOTOR_PULSE, HIGH);
+        digitalWrite(AXIS2_MOTOR_PULSE, HIGH);
 
-        int _face_track_state_1 = _digitalRead(FACE_TRACK_1);
-        int _face_track_state_2 = _digitalRead(FACE_TRACK_2);
+        //int _face_track_state_1 = _digitalRead(FACE_TRACK_1);
+        //int _face_track_state_2 = _digitalRead(FACE_TRACK_2);
+        _face_state = decode_state();
+
+        if(current_face_track_state != _face_state){
+            track_speed = 700000;
+        }
+        current_face_track_state = _face_state;
+        if(track_speed > 300000){
+            track_speed -= 50;
+        }
     
         if(face_loop_counter%100 == 0){
             // printf("Track state 1 %i\n", _face_track_state_1);
@@ -515,10 +612,10 @@ void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int nu
         }
         
         int target_axis_5 = (float)BOT->steps_a1 * -0.447368 - 7500.0;
-        printf(">> :  %i : %i\n", BOT->steps_a5, target_axis_5);
+        //printf(">> :  %i : %i\n", BOT->steps_a5, target_axis_5);
 
         while (target_axis_5 != BOT->steps_a5){
-            printf("steps axis 5 :  %i : %i\n", BOT->steps_a5, target_axis_5);
+            //printf("steps axis 5 :  %i : %i\n", BOT->steps_a5, target_axis_5);
             digitalWrite(AXIS5_MOTOR_PULSE, HIGH);
             if(target_axis_5 > BOT->steps_a5){
                 BOT->steps_a5 ++;
@@ -533,34 +630,69 @@ void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int nu
             digitalWrite(AXIS5_MOTOR_PULSE, LOW);
         }
 
-        if(_face_track_state_1 == HIGH){
-            rt_task_set_periodic(&sync_task, TM_NOW, 1000000);
+        if(_face_state == X_X){
+            rt_task_set_periodic(&sync_task, TM_NOW, track_speed); 
+            track_speed = 700000;
             continue;
         }
 
-        if(_face_track_state_2 == LOW){
+        // move left or right
+        if(_face_state == R_X || _face_state == R_U || _face_state == R_D){
             if(BOT->steps_a1 > 19000){
-                rt_task_set_periodic(&sync_task, TM_NOW, 1000000);
-                continue;
+                rt_task_set_periodic(&sync_task, TM_NOW, track_speed);
+            }else{
+                BOT->steps_a1 ++;
+                digitalWrite(AXIS1_MOTOR_DIR, CW);
+                BOT->dir_a1 = CW;
+                digitalWrite(AXIS1_MOTOR_PULSE, LOW);
             }
-            BOT->steps_a1 ++;
-            digitalWrite(AXIS1_MOTOR_DIR, CW);
-            BOT->dir_a1 = CW;
-        }else{
+        }else if (_face_state == L_X || _face_state == L_U || _face_state == L_D){
             if(BOT->steps_a1 < -19000){
-                rt_task_set_periodic(&sync_task, TM_NOW, 1000000);
-                continue;
+                rt_task_set_periodic(&sync_task, TM_NOW, track_speed);
+            }else{
+                BOT->steps_a1 --;
+                digitalWrite(AXIS1_MOTOR_DIR, CCW);
+                BOT->dir_a1 = CCW;
+                digitalWrite(AXIS1_MOTOR_PULSE, LOW);
             }
-            BOT->steps_a1 --;
-            digitalWrite(AXIS1_MOTOR_DIR, CCW);
-            BOT->dir_a1 = CCW;
         }
-
+       
+        // up and down are reversed !!
+        // bitch!
+        if(_face_state == X_U || _face_state == L_U || _face_state == R_U){
+            printf("going up!\n");
+            if (can_move_lower_arm(BOT->steps_a3 - 1, BOT->steps_a2)){
+                BOT->steps_a3 --;
+                digitalWrite(AXIS3_MOTOR_DIR, CCW);
+                BOT->dir_a3 = CCW;
+                digitalWrite(AXIS3_MOTOR_PULSE, LOW);
+            }
+            
+            if (can_move_upper_arm(BOT->steps_a2 - 1, BOT->steps_a3)){
+                BOT->steps_a2 --;
+                digitalWrite(AXIS2_MOTOR_DIR, CCW);
+                BOT->dir_a2 = CCW;
+                digitalWrite(AXIS2_MOTOR_PULSE, LOW);
+            }
+        }else if (_face_state == X_D || _face_state == L_D || _face_state == R_D){
+            if (can_move_lower_arm(BOT->steps_a3 + 1, BOT->steps_a2)){
+                BOT->steps_a3 ++;
+                digitalWrite(AXIS3_MOTOR_DIR, CW);
+                BOT->dir_a3 = CW;
+                digitalWrite(AXIS3_MOTOR_PULSE, LOW);
+            }
+           
+            if (can_move_upper_arm(BOT->steps_a2 + 1, BOT->steps_a3)){
+                BOT->steps_a2 ++;
+                digitalWrite(AXIS2_MOTOR_DIR, CW);
+                BOT->dir_a2 = CW;
+                digitalWrite(AXIS2_MOTOR_PULSE, LOW);
+            }
+        }
 
         face_loop_counter ++;
         rt_task_sleep(2000);
-        digitalWrite(AXIS1_MOTOR_PULSE, LOW);
-        rt_task_set_periodic(&sync_task, TM_NOW, 1000000);
+        rt_task_set_periodic(&sync_task, TM_NOW, track_speed);
     }
     numsteps1 = abs(BOT->target_a1 - BOT->steps_a1);
     numsteps2 = abs(BOT->target_a2 - BOT->steps_a2);
@@ -570,7 +702,7 @@ void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int nu
 
     int done = 0;
     int longest = max(numsteps1, numsteps2, numsteps3, numsteps4, numsteps5);
-    printf("longest %i \n",longest);
+    //printf("longest %i \n",longest);
 	if(longest < (SPEED->slope*2)){
         SPEED->slope = longest / 2.0; 
         SPEED->min_delay = SPEED->max_delay - SPEED->slope * (SPEED->speed_delta / longest);
@@ -607,8 +739,8 @@ void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int nu
        
         int face_state = _digitalRead(FACE);
         if (face_state == HIGH && exit_easing == 0){
-            printf("has face delay %f\n", BOT->delay);
-            printf("has face %i\n", face_state);
+            //printf("has face delay %f\n", BOT->delay);
+            //printf("has face %i\n", face_state);
             int new_slope = (int)(SPEED->max_delay - BOT->delay)/SPEED->f;
             longest = counter + new_slope;
             SPEED->slope = new_slope;
@@ -616,7 +748,7 @@ void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int nu
             SPEED->speed_delta = SPEED->max_delay - BOT->delay;
             SPEED->f = SPEED->speed_delta / SPEED->slope;
             SPEED->a = SPEED->f*2.0 / SPEED->half_slope;
-            printf("new slope %i\n", new_slope);
+            //printf("new slope %i\n", new_slope);
             exit_easing = 1;
         }
 
@@ -624,7 +756,7 @@ void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int nu
         if(face_state == HIGH){
             //stop(longest, longest - counter);
             speed(longest, longest - counter);
-            printf("stopping delay %f\n", BOT->delay);
+            //printf("stopping delay %f\n", BOT->delay);
         }else{
             speed(longest, longest - counter);
         }
@@ -638,21 +770,33 @@ void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int nu
             }
         } 
         if(fmod(counter, f2) < 1.0  && c2 < numsteps2){
-            digitalWrite(AXIS2_MOTOR_PULSE, HIGH);
-            c2 ++;
+            int step_ahead2 = -1;
             if(BOT->dir_a2 == CW){
-                BOT->steps_a2 ++;
-            }else{
-                BOT->steps_a2 --;
+                step_ahead2 = 1;
+            }
+            if (can_move_upper_arm(BOT->steps_a2 + step_ahead2, BOT->steps_a3)){
+                digitalWrite(AXIS2_MOTOR_PULSE, HIGH);
+                c2 ++;
+                if(BOT->dir_a2 == CW){
+                    BOT->steps_a2 ++;
+                }else{
+                    BOT->steps_a2 --;
+                }
             }
         } 
         if(fmod(counter, f3) < 1.0  && c3 < numsteps3){
-            digitalWrite(AXIS3_MOTOR_PULSE, HIGH);
-            c3 ++;
+            int step_ahead3 = -1;
             if(BOT->dir_a3 == CW){
-                BOT->steps_a3 ++;
-            }else{
-                BOT->steps_a3 --;
+                step_ahead3 = 1;
+            }
+            if (can_move_lower_arm(BOT->steps_a3 + step_ahead3, BOT->steps_a2)){
+                digitalWrite(AXIS3_MOTOR_PULSE, HIGH);
+                c3 ++;
+                if(BOT->dir_a3 == CW){
+                    BOT->steps_a3 ++;
+                }else{
+                    BOT->steps_a3 --;
+                }
             }
         } 
         if(fmod(counter, f4) < 1.0  && c4 < numsteps4){
@@ -681,6 +825,7 @@ void move_bot(int numsteps1, int numsteps2, int numsteps3, int numsteps4, int nu
         digitalWrite(AXIS4_MOTOR_PULSE, LOW);
         digitalWrite(AXIS5_MOTOR_PULSE, LOW);
 
+        //printf("STATE %i \n", decode_state());
 
         rt_task_set_periodic(&sync_task, TM_NOW, BOT->delay);
         counter ++;
@@ -740,41 +885,7 @@ int move_to(int steps1, int steps2, int steps3, int steps4, int steps5){
     move_bot(steps_to_move_a1, steps_to_move_a2, steps_to_move_a3, steps_to_move_a4, steps_to_move_a5);
 }
 
-void program(char *script){
-    loadLua(script);
-    alarm(1);
-}
-
-int run(char *script){
-    rt_task_set_periodic(&sync_task, TM_NOW, BOT->delay);
-    rt_task_create(&sync_task, "sync-task", 0, 99, 0);
-    rt_task_start(&sync_task, &program, script);
-    pause();
-    rt_task_delete(&sync_task);
-}
-
-
-int __home(lua_State *L){
-    sync_bot();
-}
-
-int __move_to(lua_State *L){
-    SPEED->increment = 0;
-    SPEED->decrement = 0;
-    int axis_1 = lua_tonumber(L, 1);
-    int axis_2 = lua_tonumber(L, 2);
-    int axis_3 = lua_tonumber(L, 3);
-    int axis_4 = lua_tonumber(L, 4);
-    int axis_5 = lua_tonumber(L, 5);
-    move_to(axis_1, axis_2, axis_3, axis_4, axis_5);
-    BOT->delay = SPEED->max_delay;
-    return 0;
-}
-
-int __set_speed(lua_State *L){
-    float slope = lua_tonumber(L, 1);
-    float min_delay = lua_tonumber(L, 2);
-    float max_delay = lua_tonumber(L, 3);
+int set_speed(float slope, float min_delay, float max_delay){
     float speed_delta = max_delay - min_delay;
     SPEED->max_delay = max_delay;
     SPEED->min_delay = min_delay;
@@ -790,7 +901,45 @@ int __set_speed(lua_State *L){
     return 0;
 }
 
-int __set_default_speed(lua_State *L){
+void program(){
+    //loadLua(script);
+    int zoom = -7000;
+    int pivot = 1800;
+    set_speed(2000, 13000*10, 200000*20);// slope min max
+    move_to(0,zoom,0,-pivot,-7500);
+    int slope = 3000;
+    while(1){
+        set_speed(slope, 13000*10, 200000*20); // slope min max
+        move_to(-19000,zoom,0,-pivot,1000);
+
+        set_speed(slope, 13000*10, 200000*20); // slope min max
+        move_to(-19000,5000,0,-pivot,1000);
+        
+        set_speed(slope, 13000*10, 200000*20); // slope min max
+        move_to(-19000,5000,9000,-pivot,1000);
+
+        set_speed(slope, 13000*10, 200000*20); // slope min max
+        move_to(-19000,5000,-4000,-pivot,1000);
+
+        set_speed(slope, 13000*10, 200000*20); // slope min max
+        move_to(19000,zoom,0,-pivot,-16000);
+
+        set_speed(slope, 13000*10, 200000*20); // slope min max
+        move_to(19000,0,0,-pivot,-16000);
+    }
+
+    alarm(1);
+}
+
+int run(){
+    rt_task_set_periodic(&sync_task, TM_NOW, BOT->delay);
+    rt_task_create(&sync_task, "sync-task", 0, 99, 0);
+    rt_task_start(&sync_task, &program, NULL);
+    pause();
+    rt_task_delete(&sync_task);
+}
+
+int set_default_speed(){
     SPEED->max_delay = MOVE_MAX_DELAY;
     SPEED->min_delay = MOVE_MIN_DELAY;
     SPEED->slope = START_SLOPE;
@@ -803,28 +952,6 @@ int __set_default_speed(lua_State *L){
     return 0;
 }
 
-void loadLua(char *script){
-
-    lua_State *L;
-
-    L = luaL_newstate();
-    luaL_openlibs(L); 
-    lua_register(L,"move_to",__move_to);
-    lua_register(L,"home",__home);
-    lua_register(L,"set_speed",__set_speed);
-    lua_register(L,"set_default_speed",__set_default_speed);
-
-    if (luaL_loadfile(L, script)){
-        printf("luaL_loadfile() failed scriptname: %s\n",script);   
-    }   
-
-    if (lua_pcall(L, 0, 0, 0)){
-        printf("lua_pcall() failed\n");  
-    }
-
-    lua_close(L);
-}
-
 
 int main(int argc, char* argv[])
 {
@@ -834,10 +961,15 @@ int main(int argc, char* argv[])
     mlockall(MCL_CURRENT|MCL_FUTURE);
     wiringPiSetup();
     setUp();
-    char *script= "default.lua";
+    char *mode = "home";
     if(argc == 2){
-        script = argv[1];
+        mode = argv[1];
     }
-    run(script);
+    char home_str[] = "home";
+    if(strcmp(mode, home_str) == 0){
+        home();
+    }else{
+        run();
+    }
     return 0;
 }
