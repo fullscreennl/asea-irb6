@@ -8,7 +8,7 @@ httplib2==0.11.3
 idna==2.6
 netifaces==0.10.4
 numpy==1.16.2
-Pillow==5.4.1
+Pillow==8.2.0
 protobuf==3.6.1
 pycairo==1.16.2
 pycurl==7.43.0.2
