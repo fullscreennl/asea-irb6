@@ -42,7 +42,9 @@ USB/PCIe/M.2 Accelerator.
 
     bash install_requirements.sh
     ```
+## ssh into the coral
 
+ssh mendel@{ipaddress}, authentication as per authorized_keys, in case of a new user/computer add it there.
 
 ## Run the classification demo
 
