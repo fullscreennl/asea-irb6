@@ -66,3 +66,10 @@ Likewise, you can change the model and the labels file using ```--model``` and `
 By default, both examples use the attached Coral Camera. If you want to use a USB camera,
 edit the ```gstreamer.py``` file and change ```device=/dev/video0``` to ```device=/dev/video1```.
 
+## Run this script from coral board
+this script does auto reboot on the detect.py script because we foud out it crashes after running for a long time. 
+-E is for taking the environemtn along from deft-jet to sudo
+```
+$ cd git/asea-rb6/coral
+$ sudo -E sh start_app.sh
+``` 
