@@ -1,8 +1,9 @@
 from periphery import GPIO
+
 gpio_line3 = GPIO(73, "out")
 gpio_line1 = GPIO(138, "out")
 gpio_line2 = GPIO(140, "out")
-gpio_line0 = GPIO(6, "out") 
+gpio_line0 = GPIO(6, "out")
 gpio_line0.write(False)
 gpio_line1.write(False)
 gpio_line2.write(False)
